@@ -1,5 +1,8 @@
 #!/bin/sh
-# Generate a random string from an alphabet string and a length.
+# Generate a random string from an alphabet string and a length.  It's much
+# slower than the old php script (especially for large values of -l), but the 
+# startup time is much less so you need not rely on the OS caching all php's 
+# configs and so on.
 
 print_help() {
   cat <<EOF 
@@ -63,7 +66,6 @@ if test x"$ALPHA" = x; then
   if test $USE_NUMS -eq 1; then ALPHA="${ALPHA}0123456789"; fi
 fi
 
-PW=""
 bytes=4
 maxlen=`echo -n $ALPHA | wc -c`
 while test ! $LEN -eq 0; do
@@ -71,8 +73,7 @@ while test ! $LEN -eq 0; do
   # From 1 to maxlen.
   rand=$((1 + $rand % $maxlen))
   c=`expr substr "$ALPHA" $rand 1`
-  PW="${PW}$c"
+  echo -n "$c"
   LEN=$((LEN-1))
 done
-
-echo $PW
+echo
