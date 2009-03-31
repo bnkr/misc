@@ -22,6 +22,21 @@ def run_initial_command(args, name)
   end
 end
 
+# ensure this is a cmake dir and remove if necessary
+def checked_remove(bindir)
+  puts "Cleaning bindir"
+  d = Pathname.new(bindir)
+  return if not d.exist?
+
+  check = d + "./CMakeCache.txt"
+  if not check.exist?
+    raise "-c used but the dir '#{d}' does not appear to be a cmake binary dir - remove manually, please."
+  end
+
+  puts "rm -rf #{d}"
+  FileUtils.rm_rf(d)
+end
+
 # Returns a list of args formatted for cmake binary
 def process_extra_defines(v)
   r = []
@@ -31,8 +46,9 @@ end
 
 # Must be inside the correct bindir
 def setup_unix(srcdir, extra_defines = [])
-  args = DEFAULT_ARGS + [srcdir]
+  args = DEFAULT_ARGS.dup
   args += process_extra_defines(extra_defines)
+  args << srcdir
   run_initial_command(args, "unix")
 end
 
@@ -40,8 +56,8 @@ end
 def setup_win(srcdir, extra_defines = [])
   args = DEFAULT_ARGS.dup
   args << "-DCMAKE_TOOLCHAIN_FILE=#{WIN_TOOLCHAIN}"
-  args << srcdir
   args += process_extra_defines(extra_defines)
+  args << srcdir
   run_initial_command(args, "win32")
 
   build_aux = Pathname.new("#{ARGV[0]}/build-aux/")
@@ -93,8 +109,10 @@ if ARGV.include?('-h')
   puts "Set up the initial cmake cache.  If no option is given, then both types are made"
   puts "in subdirectories unless we are in a directory called 'unix' or 'win'."
   puts
+  puts "  -h  print this message and quit."
   puts "  -u  create unix cache."
   puts "  -w  create win32 cache."
+  puts "  -c  delete the existing cache first."
   puts "  -D var=value  values to pass on to cmake cmdline as -Dvar=value."
   Kernel.exit(0);
 end
@@ -110,6 +128,7 @@ end
 create_unix = create_windows = false
 non_args = []
 extra_defines = []
+clean = false
 i = 0
 while i < ARGV.length
   a = ARGV[i]
@@ -134,6 +153,8 @@ while i < ARGV.length
       STDERR.puts "Error: -d requires a var=value style argument."
       Kernel.exit(1)
     end
+  elsif a == '-c'
+    clean = true
   elsif a != "-h"
     non_args << a
   end
@@ -165,6 +186,9 @@ end
 if create_unix
   puts "cmake-setup.rb: creating unix..."
   bindir = (started_from_unix) ? nil : 'unix'
+
+  checked_remove(bindir) if clean
+
   do_create(bindir) {
     setup_unix(srcdir, extra_defines)
   }
@@ -173,6 +197,9 @@ end
 if create_windows
   puts "cmake-setup.rb: creating windows..."
   bindir = (started_from_windows) ? nil : 'win'
+
+  checked_remove(bindir) if clean
+
   do_create(bindir) {
     setup_win(srcdir, extra_defines)
   }
