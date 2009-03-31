@@ -13,6 +13,7 @@ end
 def run_initial_command(args, name)
   cmd = CMAKE_CMD
 
+  puts "#{cmd} #{args.join(' ')}"
   system(cmd, *args)
 
   if not $?.success?
@@ -21,17 +22,26 @@ def run_initial_command(args, name)
   end
 end
 
+# Returns a list of args formatted for cmake binary
+def process_extra_defines(v)
+  r = []
+  v.each {|d| r << "-D#{d}" }
+  r
+end
+
 # Must be inside the correct bindir
-def setup_unix(srcdir)
+def setup_unix(srcdir, extra_defines = [])
   args = DEFAULT_ARGS + [srcdir]
+  args += process_extra_defines(extra_defines)
   run_initial_command(args, "unix")
 end
 
 # Must be inside the correct bindir
-def setup_win(srcdir)
+def setup_win(srcdir, extra_defines = [])
   args = DEFAULT_ARGS.dup
   args << "-DCMAKE_TOOLCHAIN_FILE=#{WIN_TOOLCHAIN}"
   args << srcdir
+  args += process_extra_defines(extra_defines)
   run_initial_command(args, "win32")
 
   build_aux = Pathname.new("#{ARGV[0]}/build-aux/")
@@ -85,6 +95,8 @@ if ARGV.include?('-h')
   puts
   puts "  -u  create unix cache."
   puts "  -w  create win32 cache."
+  puts "  -D var=value  values to pass on to cmake cmdline as -Dvar=value."
+  Kernel.exit(0);
 end
 
 dir = Pathname.new(Dir.pwd).basename.to_s
@@ -97,7 +109,10 @@ end
 
 create_unix = create_windows = false
 non_args = []
-ARGV.each {|a|
+extra_defines = []
+i = 0
+while i < ARGV.length
+  a = ARGV[i]
   if a == '-u'
     if started_from_windows
       STDERR.puts "cmake-setup.rb: error: creating unix (-u) while in a windows dir."
@@ -110,11 +125,20 @@ ARGV.each {|a|
       Kernel.exit(1)
     end
     create_windows = true
+  elsif a == '-d'
+    i += 1
+    v = ARGV[i]
+    if (v && v =~ /[a-zA-Z_][a-zA-Z0-9_]*=.*/)
+      extra_defines << v
+    else
+      STDERR.puts "Error: -d requires a var=value style argument."
+      Kernel.exit(1)
+    end
   elsif a != "-h"
-
     non_args << a
   end
-}
+  i += 1
+end
 
 if (not create_unix) && (not create_windows)
   create_unix = create_windows = true
@@ -128,7 +152,9 @@ elsif not Pathname.new("#{non_args[0]}/CMakeLists.txt").readable?
   Kernel.exit 1
 end
 
-srcdir = non_args[0]
+srcdir = Pathname.new(non_args[0])
+# need a full path because we'll CD to the system dir
+srcdir = srcdir.realpath
 
 if (not started_from_unix) && (not started_from_windows)
   if (not Pathname.new("srcdir").directory?)
@@ -140,7 +166,7 @@ if create_unix
   puts "cmake-setup.rb: creating unix..."
   bindir = (started_from_unix) ? nil : 'unix'
   do_create(bindir) {
-    setup_unix(srcdir)
+    setup_unix(srcdir, extra_defines)
   }
 end
 
@@ -148,7 +174,7 @@ if create_windows
   puts "cmake-setup.rb: creating windows..."
   bindir = (started_from_windows) ? nil : 'win'
   do_create(bindir) {
-    setup_win(srcdir)
+    setup_win(srcdir, extra_defines)
   }
 end
 
