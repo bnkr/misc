@@ -3,7 +3,7 @@ require 'pathname'
 require 'fileutils'
 
 CMAKE_CMD     = "cmake"
-WIN_TOOLCHAIN = Pathname.new("/home/bunker/code/cross-compile/windows/toolchain-windows.cmake");
+WIN_TOOLCHAIN = Pathname.new("/home/bunker/src/cross/win/toolchain-windows.cmake");
 DEFAULT_ARGS  = ['-Wdev', '-GUnix Makefiles', '-DCMAKE_BUILD_TYPE=Debug']
 
 if not WIN_TOOLCHAIN.readable?
@@ -22,19 +22,24 @@ def run_initial_command(args, name)
   end
 end
 
-# ensure this is a cmake dir and remove if necessary
-def checked_remove(bindir)
+# ensure this is a cmake dir and remove if necessary.  Will refuse to remove
+# if the dir is not unix or win unless the bindir parameter is given.
+def checked_remove(bindir = nil)
   puts "Cleaning bindir"
-  d = Pathname.new(bindir)
-  return if not d.exist?
+  if bindir
+    d = Pathname.new(bindir)
+    return if not d.exist?
 
-  check = d + "./CMakeCache.txt"
-  if not check.exist?
-    raise "-c used but the dir '#{d}' does not appear to be a cmake binary dir - remove manually, please."
+    check = d + "./CMakeCache.txt"
+    if not check.exist?
+      raise "-c used but the dir '#{d}' does not appear to be a cmake binary dir - remove manually, please."
+    end
+
+    puts "rm -rf #{d}"
+    FileUtils.rm_rf(d)
+  else
+    raise "refusing to remove the dir which we are in"
   end
-
-  puts "rm -rf #{d}"
-  FileUtils.rm_rf(d)
 end
 
 # Returns a list of args formatted for cmake binary
@@ -162,14 +167,15 @@ while i < ARGV.length
   i += 1
 end
 
-# Default to both, or whichever dir we're in currently.
+# Default to the current wd.
 if (not create_unix) && (not create_windows)
-  if (File.exist?("./CMakeCache.txt"))
-    create_windows = started_from_windows
-    create_unix = started_from_unix
-  else
-    create_unix = create_windows = true
-  end
+  # if (File.exist?("./CMakeCache.txt"))
+  create_windows = started_from_windows
+  create_unix = started_from_unix
+end
+
+if (not create_unix) && (not create_windows)
+  create_windows = create_unix = true
 end
 
 # Detect the srcdir if it's not given
@@ -181,6 +187,7 @@ if non_args.length == 0
     srcdir = Pathname.new("./srcdir")
   end
 
+  # TODO: could detect based on the dirname of the build dir too..
   if not srcdir.symlink?
     STDERR.puts "cmake-setup.rb: error: srcdir link '#{srcdir}' is not a link."
     Kernel.exit 1
