@@ -125,7 +125,8 @@ elsif dir == 'unix'
   started_from_unix = true
 end
 
-create_unix = create_windows = false
+create_unix = false
+create_windows = false
 non_args = []
 extra_defines = []
 clean = false
@@ -161,20 +162,42 @@ while i < ARGV.length
   i += 1
 end
 
+# Default to both, or whichever dir we're in currently.
 if (not create_unix) && (not create_windows)
-  create_unix = create_windows = true
+  if (File.exist?("./CMakeCache.txt"))
+    create_windows = started_from_windows
+    create_unix = started_from_unix
+  else
+    create_unix = create_windows = true
+  end
 end
 
-if non_args.length != 1
-  STDERR.puts "cmake-setup.rb: error: wrong number of arguments."
-  Kernel.exit 1
-elsif not Pathname.new("#{non_args[0]}/CMakeLists.txt").readable?
-  STDERR.puts "error: #{non_args[0]}' doesn't contain a CMakeLists.txt"
+# Detect the srcdir if it's not given
+if non_args.length == 0
+  # Note: remember to miss the trailing slash or the symlink? test fails!
+  if started_from_unix || started_from_windows
+    srcdir = Pathname.new("../srcdir")
+  else
+    srcdir = Pathname.new("./srcdir")
+  end
+
+  if not srcdir.symlink?
+    STDERR.puts "cmake-setup.rb: error: srcdir link '#{srcdir}' is not a link."
+    Kernel.exit 1
+  end
+elsif non_args.length == 1
+  srcdir = Pathname.new(non_args[0])
+else
+  STDERR.puts "cmake-setup.rb: error: need source directory, or the standard symlink."
   Kernel.exit 1
 end
 
-srcdir = Pathname.new(non_args[0])
-# need a full path because we'll CD to the system dir
+if not Pathname.new("#{srcdir}/CMakeLists.txt").readable?
+  STDERR.puts "cmake-setup.rb: error: '#{srcdir}' doesn't contain a CMakeLists.txt"
+  Kernel.exit 1
+end
+
+# Need a fullpath because we might cd out of pwd.
 srcdir = srcdir.realpath
 
 if (not started_from_unix) && (not started_from_windows)
