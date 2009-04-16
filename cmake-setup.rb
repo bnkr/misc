@@ -114,10 +114,11 @@ if ARGV.include?('-h')
   puts "Set up the initial cmake cache.  If no option is given, then both types are made"
   puts "in subdirectories unless we are in a directory called 'unix' or 'win'."
   puts
-  puts "  -h  print this message and quit."
-  puts "  -u  create unix cache."
-  puts "  -w  create win32 cache."
-  puts "  -c  delete the existing cache first."
+  puts "  -h   print this message and quit."
+  puts "  -u   create unix cache."
+  puts "  -w   create win32 cache."
+  puts "  -c   delete the existing cache first."
+  puts "  -H   create the dir here (only if -u or -w and not in an expected dir)."
   puts "  -D var=value  values to pass on to cmake cmdline as -Dvar=value."
   Kernel.exit(0);
 end
@@ -135,6 +136,7 @@ create_windows = false
 non_args = []
 extra_defines = []
 clean = false
+create_in_pwd = false
 i = 0
 while i < ARGV.length
   a = ARGV[i]
@@ -161,10 +163,17 @@ while i < ARGV.length
     end
   elsif a == '-c'
     clean = true
+  elsif a == '-H'
+    create_in_pwd = true
   elsif a != "-h"
     non_args << a
   end
   i += 1
+end
+
+if create_in_pwd && (not create_unix) && (not create_windows)
+  STDERR.puts "Error: if -H then you must specify -u or -w"
+  exit 1
 end
 
 # Default to the current wd.
@@ -189,7 +198,7 @@ if non_args.length == 0
 
   # TODO: could detect based on the dirname of the build dir too..
   if not srcdir.symlink?
-    STDERR.puts "cmake-setup.rb: error: srcdir link '#{srcdir}' is not a link."
+    STDERR.puts "cmake-setup.rb: error: srcdir link '#{srcdir}' is not a link.  Try specifying manually."
     Kernel.exit 1
   end
 elsif non_args.length == 1
@@ -215,7 +224,11 @@ end
 
 if create_unix
   puts "cmake-setup.rb: creating unix..."
-  bindir = (started_from_unix) ? nil : 'unix'
+  if (create_in_pwd)
+    bindir = "."
+  else
+    bindir = (started_from_unix) ? nil : 'unix'
+  end
 
   checked_remove(bindir) if clean
 
@@ -226,7 +239,11 @@ end
 
 if create_windows
   puts "cmake-setup.rb: creating windows..."
-  bindir = (started_from_windows) ? nil : 'win'
+  if (create_in_pwd)
+    bindir = "."
+  else
+    bindir = (started_from_windows) ? nil : 'win'
+  end
 
   checked_remove(bindir) if clean
 
