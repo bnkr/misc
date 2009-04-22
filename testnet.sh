@@ -10,7 +10,7 @@ checkhost () {
   ip=$2
 
   echo -n "${COLBLUE}* $name${COLRESET}"
-  ping -c 1 -q $ip > /dev/null
+  ping -c 1 -q $ip > /dev/null 2>&1
   if test $? -ne "0"; then
     BROKEN=1
     echo " ${COLRED}down$COLRESET"
