@@ -1,4 +1,9 @@
 #!/bin/sh
+#
+# testnet.sh -d --dialog
+#
+#   -d --dialog   prints kdialog at the end.
+#
 COLBLUE="\033[1;34m"
 COLGREEN="\033[1;32m"
 COLRED="\033[1;31m"
@@ -19,6 +24,11 @@ checkhost () {
   fi
 }
 
+DIALOG=0
+if test "x$1" = "x--dialog" || test "x$1" = "x-d"; then
+  DIALOG=1
+fi
+
 while test $BROKEN -eq 1; do
   BROKEN=0
   checkhost "Mulder:" 192.168.1.1
@@ -37,5 +47,9 @@ while test $BROKEN -eq 1; do
 done
 
 echo "All working!"
+
+if test $DIALOG -eq 1; then
+  kdialog --msgbox "The system is up again!"
+fi
 
 exit 0
