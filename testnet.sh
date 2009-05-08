@@ -24,6 +24,11 @@ checkhost () {
   fi
 }
 
+wait_retry() {
+  echo "Retrying..."
+  sleep 3;
+}
+
 DIALOG=0
 if test "x$1" = "x--dialog" || test "x$1" = "x-d"; then
   DIALOG=1
@@ -32,18 +37,19 @@ fi
 while test $BROKEN -eq 1; do
   BROKEN=0
   checkhost "Mulder:" 192.168.1.1
+  if test $BROKEN -eq 1; then wait_retry; continue; fi
   checkhost "Scully:" 192.168.1.2
+  if test $BROKEN -eq 1; then wait_retry; continue; fi
   checkhost "Csm:   " 192.168.1.3
+  if test $BROKEN -eq 1; then wait_retry; continue; fi
   checkhost "Kuri:  " 192.168.1.4
+  if test $BROKEN -eq 1; then wait_retry; continue; fi
 
   checkhost "Modem: " 192.168.100.1
+  if test $BROKEN -eq 1; then wait_retry; continue; fi
 
   checkhost "Extern:" bunkerprivate.com
-
-  if test $BROKEN -eq 1; then
-    echo "Waiting to retry..."
-    sleep 3;
-  fi
+  if test $BROKEN -eq 1; then wait_retry; continue; fi
 done
 
 echo "All working!"
