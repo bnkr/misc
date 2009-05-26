@@ -30,8 +30,18 @@ wait_retry() {
 }
 
 DIALOG=0
-if test "x$1" = "x--dialog" || test "x$1" = "x-d"; then
-  DIALOG=1
+if test "$#" -eq 1; then
+  if test "x$1" = "x--dialog" || test "x$1" = "x-d"; then
+    DIALOG=1
+  else
+    echo "Unrecognised argument: $1."  1>&2
+    echo "usage: testnet.sh [-d | --dialog]"  1>&2
+    exit 1;
+  fi
+elif test $# -ne 0; then
+  echo "Too many arguments."  1>&2
+  echo "usage: testnet.sh [-d | --dialog]"  1>&2
+  exit 1
 fi
 
 while test $BROKEN -eq 1; do
