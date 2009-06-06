@@ -62,6 +62,7 @@ while true; do
   if test $SAMPLES -eq 1; then
     break
   else
+    sleep 2;
     SAMPLES=$(($SAMPLES - 1))
   fi
 done
