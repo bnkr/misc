@@ -44,7 +44,9 @@ while test $# -gt 0; do
         if test $# -eq 0; then
           echo "-i requires an argument."
           exit 1;
-        fi 
+        else
+          HOST=$1
+        fi
         ;;
      *) echo "Unrecognised argument: $1"; exit 1 ;;
   esac
