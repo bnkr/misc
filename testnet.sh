@@ -3,12 +3,14 @@
 # testnet.sh -d --dialog
 #
 #   -d --dialog   prints kdialog at the end.
+#   -a            test everything, even if some stuff is down
 #
 COLBLUE="\033[1;34m"
 COLGREEN="\033[1;32m"
 COLRED="\033[1;31m"
 COLRESET="\033[0m"
 BROKEN=1
+ALL=0
 
 checkhost () {
   name=$1
@@ -29,34 +31,44 @@ wait_retry() {
   sleep 3;
 }
 
+print_help() {
+  echo "Usage: testnet.sh [-d | --dialog] [-a]"
+  echo "Test the network."
+  echo
+  echo "  -d  print a dialog if everything is OK."
+  echo "  -a  test all nodes instead of restarting every failure."
+}
+
 DIALOG=0
-if test "$#" -eq 1; then
-  if test "x$1" = "x--dialog" || test "x$1" = "x-d"; then
-    DIALOG=1
-  else
-    echo "Unrecognised argument: $1."  1>&2
-    echo "usage: testnet.sh [-d | --dialog]"  1>&2
-    exit 1;
-  fi
-elif test $# -ne 0; then
-  echo "Too many arguments."  1>&2
-  echo "usage: testnet.sh [-d | --dialog]"  1>&2
-  exit 1
-fi
+while test $# -gt 0; do
+  case "$1" in
+    -h) print_help; exit 0 
+       ;;
+    -d) DIALOG=1
+       ;;
+    --dialog) DIALOG=1 
+       ;;
+    -a) ALL=1
+       ;;
+    *) echo "Unexpected argument: $1" 1>&2; exit 1; 
+       ;;
+  esac
+  shift
+done
 
 while test $BROKEN -eq 1; do
   BROKEN=0
   checkhost "Mulder:" 192.168.1.1
-  if test $BROKEN -eq 1; then wait_retry; continue; fi
+  if test $BROKEN -eq 1 && test $ALL -ne 1; then wait_retry; continue; fi
   checkhost "Scully:" 192.168.1.2
-  if test $BROKEN -eq 1; then wait_retry; continue; fi
+  if test $BROKEN -eq 1 && test $ALL -ne 1; then wait_retry; continue; fi
   checkhost "Csm:   " 192.168.1.3
-  if test $BROKEN -eq 1; then wait_retry; continue; fi
+  if test $BROKEN -eq 1 && test $ALL -ne 1; then wait_retry; continue; fi
   checkhost "Kuri:  " 192.168.1.4
-  if test $BROKEN -eq 1; then wait_retry; continue; fi
+  if test $BROKEN -eq 1 && test $ALL -ne 1; then wait_retry; continue; fi
 
   checkhost "Modem: " 192.168.100.1
-  if test $BROKEN -eq 1; then wait_retry; continue; fi
+  if test $BROKEN -eq 1 && test $ALL -ne 1; then wait_retry; continue; fi
 
   checkhost "Extern:" bunkerprivate.com
   if test $BROKEN -eq 1; then wait_retry; continue; fi
