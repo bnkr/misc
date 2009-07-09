@@ -24,8 +24,12 @@ class Parser
   def parse
     @io.each_line {|l|
       #  puts "** Parse line: '#{l.chomp}'"
+      # TODO:
+      #   some redundant comparisons in the error parsing here.
       if l =~ /^LaTeX Warning:/
         parse_error(l)
+      elsif l =~ /^(Overfull|UnderFull)/
+        parse_box_error(l)
       else
         parse_line(l)
       end
@@ -74,6 +78,16 @@ class Parser
     end
 
     #  puts "=> State is now: #{@inputs.inspect}"
+  end
+
+  def parse_box_error(l)
+    m = l.match(/((Overfull|Underfull) \\[hv]box) \(([0-9.]+pt).*paragraph at lines ([0-9\-]+)$/)
+    file = @inputs[@inputs.length - 1]
+    lines = m[4]
+    msg = m[1].downcase
+    ammount = m[3]
+
+    puts "#{file} #{lines}: #{msg} by #{ammount}"
   end
 
   def parse_error(l)
