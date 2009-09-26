@@ -4,7 +4,7 @@
 
 FORCE_COMMENT=
 YEAR='2008-2009'
-LICENSE="a 3-clause BSD license."
+LICENSE="a 3-clause BSD license"
 CHECK=0
 VERBOSE=0
 USE_STATUS=0
