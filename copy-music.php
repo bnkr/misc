@@ -12,7 +12,7 @@ function errln($str) {
 function print_usage() {
   $cmd = basename(__FILE__);
   $pad = str_repeat(strlen($cmd), " ");
-  echo $pad . " [OPTIONS] FILE[S] DEST\n";
+  echo $cmd . " [OPTIONS] FILE[S] DEST\n";
   echo $pad . " -o  overwrite existing files.\n";
   echo $pad . " -v  verbose output.\n";
   echo $pad . " -h  this message and quit.\n";
@@ -26,7 +26,7 @@ function correct_filename($f) {
 /** copies a single file **/
 function copy_file($src, $dest, $overwrite = false) {
   GLOBAL $VERBOSE;
-  
+
   if (is_dir($dest)) {
     $dest .= correct_filename(basename($src));
   }
@@ -38,7 +38,7 @@ function copy_file($src, $dest, $overwrite = false) {
     errln("Ignoreing non-mp3: '$dest'");
     return;
   }
-    
+
   if ($VERBOSE) dbg("Cp: $src -> $dest");
   if (! copy($src, $dest)) {
     errln("Could not copy '$src' to '$dest'.");
@@ -48,14 +48,14 @@ function copy_file($src, $dest, $overwrite = false) {
 /** copies a file or a directory **/
 function do_copy($src, $dest, $overwrite = false) {
   GLOBAL $VERBOSE;
-  
+
   if (! is_dir($src)) {
     copy_file($src, $dest, $overwrite);
   }
   else {
     $src = format_dir($src);
     $files = get_file_list($src, GET_FILE_LIST_ALL);
-    
+
     if ($files === NULL) {
       errln("Error: couldn't open dir: $src.");
     }
@@ -69,18 +69,18 @@ function do_copy($src, $dest, $overwrite = false) {
       else {
         $dest_dir = format_dir(correct_filename($dest));
       }
-      
+
       if ($VERBOSE) dbg("Mkdir: " . $dest_dir);
-      
+
       if (! mkdir($dest_dir)) {
         errln("Unable to make '" . $dest_dir . "'");
         return 1;
       }
-       
+
       foreach ($files as $f) {
         do_copy($src . $f, $dest_dir . correct_filename($f), $overwrite);
       }
-      
+
       return 0;
     }
   }
