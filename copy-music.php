@@ -11,12 +11,13 @@ function errln($str) {
 
 function print_usage() {
   $cmd = basename(__FILE__);
-  $pad = str_repeat(strlen($cmd), " ");
-  echo $cmd . " [OPTIONS] FILE[S] DEST\n";
-  echo $pad . " -o  overwrite existing files.\n";
-  echo $pad . " -v  verbose output.\n";
-  echo $pad . " -h  this message and quit.\n";
-//   echo $pad . " -R -r  recursive copy.\n";
+  echo 'usage: ' . $cmd . " [OPTIONS] FILES_AND_DIRS... DEST\n";
+  echo "Copy an albums to the mp3 plauyer, performing renames to make it work.  Copy is always recursive.\n";
+
+  echo "\nOptions:\n";
+  echo "  -o  overwrite existing files.\n";
+  echo "  -v  verbose output.\n";
+  echo "  -h  this message and quit.\n";
 }
 
 function correct_filename($f) {
