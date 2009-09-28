@@ -143,7 +143,9 @@ for f in $FILES; do
       fi
     fi
   else
-    echo "$f: has copyright." 1>&2
+    if test $VERBOSE -eq 1; then
+      echo "$f: has copyright." 1>&2
+    fi
   fi
 done
 
