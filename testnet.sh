@@ -62,8 +62,8 @@ while test $BROKEN -eq 1; do
   if test $BROKEN -eq 1 && test $ALL -ne 1; then wait_retry; continue; fi
   checkhost "Scully:" 192.168.1.2
   if test $BROKEN -eq 1 && test $ALL -ne 1; then wait_retry; continue; fi
-  checkhost "Csm:   " 192.168.1.3
-  if test $BROKEN -eq 1 && test $ALL -ne 1; then wait_retry; continue; fi
+  # checkhost "Csm:   " 192.168.1.3
+  # if test $BROKEN -eq 1 && test $ALL -ne 1; then wait_retry; continue; fi
   checkhost "Kuri:  " 192.168.1.4
   if test $BROKEN -eq 1 && test $ALL -ne 1; then wait_retry; continue; fi
 
