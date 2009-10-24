@@ -23,7 +23,7 @@ function print_usage() {
 }
 
 /*!
-\param $msgstr     Displayed in a message box after the time is up; no box is 
+\param $msgstr     Displayed in a message box after the time is up; no box is
                    displayed if this is blank.
 \param $soundfile  run with mplayer.  Again, if blank no sound file is loaded.
 */
@@ -34,11 +34,11 @@ function do_alarm($target_ts, $msgstr, $soundfile) {
 
   if ($soundfile != '') {
     $pid = pcntl_fork();
-    if ($pid == -1) { 
+    if ($pid == -1) {
       die("Teh problem.");
     }
     else if ($pid == 0) {
-      system("mplayer '$soundfile'");
+      system("mplayer \"" . $soundfile . "\"");
       exit(0);
     }
   }
@@ -50,7 +50,7 @@ function do_alarm($target_ts, $msgstr, $soundfile) {
   if ($soundfile != '') {
     $stat = 0;
     pcntl_waitpid($pid, $stat);
-  }	
+  }
 }
 
 if (isset($OPT['h'])) {
@@ -65,7 +65,7 @@ $ADD_HRS = (isset($OPT['H'])) ? $OPT['H'] * 60 * 60 : 0;
 if (isset($OPT['M'])) {
   if (isset($OPT['q'])) cmd_errln("-M was set, but so was -q!  Using specified message.");
 
-  $MESSAGE = $OPT['M']; 
+  $MESSAGE = $OPT['M'];
 }
 else if (isset($OPT['q'])) {
   $MESSAGE = "";
@@ -81,7 +81,7 @@ if (isset($OPT['S'])) {
   }
   $SOUND = $OPT['S'];
 
-} 
+}
 else {
   $SOUND = '';
 }
@@ -104,8 +104,8 @@ if (isset($OPT['t'])) {
   $m = (isset($parts[1])) ? $parts[1] : 0;
   $s = (isset($parts[2])) ? $parts[2] : 0;
 
-  $ts = strtotime(date("Y-m-d ") . 
-                  str_pad($h, "0", STR_PAD_LEFT) . ":" . 
+  $ts = strtotime(date("Y-m-d ") .
+                  str_pad($h, "0", STR_PAD_LEFT) . ":" .
                   str_pad($m, "0", STR_PAD_LEFT) . ":" .
                   str_pad($s, "0", STR_PAD_LEFT));
   cmd_stdln("Waiting until " . date("H:i:s", $ts));
