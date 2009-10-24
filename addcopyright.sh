@@ -38,7 +38,7 @@ find_comment() {
     *.cpp | *.hpp | *.c | *.h | *.hxx | *.cxx | *.php)
       COMMENT="//"
       ;;
-    *.rb | *.cmake | CMakeLists.txt | *.sh)
+    *.rb | *.cmake | */CMakeLists.txt | *.sh)
       COMMENT="#"
       ;;
     *)
