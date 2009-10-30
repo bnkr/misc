@@ -72,8 +72,8 @@ for arg in $*; do
     VERBOSE=1
     ;;
 
-    -v | -verbose)
-    VERBOSE=1
+    -s | -simulate)
+    SIMULATE=1
     ;;
 
     -f | -find)
