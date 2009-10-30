@@ -10,23 +10,6 @@
 #   // rest of the file
 #
 #   #endif
-#
-# This script expects that random is [0-9a-z], and the header is [A-Z_].  This
-# is only sufficiant to test something which works by my own conventions!
-#
-# TODO:
-#   test for presence of filename, not guard regexpt: regexp is
-#
-#     #ifndef FILENAME...
-#
-#   So we have -r (for matching regexp), and -f.
-#
-# TODO:
-#   -v for verbose (print what is going on)
-#
-# TODO:
-#   -c for check -- see which ones don't have it.
-#
 
 VERBOSE=0
 SIMULATE=0
@@ -104,6 +87,11 @@ done
 
 if test $errors -eq 1; then
   echo "error: no operations have been performed." 1>&2
+  exit 1;
+fi
+
+if test "x$FILES" = "x"; then 
+  echo "error: no files given." 1>&2
   exit 1;
 fi
 
