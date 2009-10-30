@@ -14,6 +14,7 @@
 VERBOSE=0
 SIMULATE=0
 FIND=0
+PREFIX=""
 
 MATCH_PRAGMA=1
 MATCH_REGEXP=2
@@ -25,10 +26,11 @@ print_help() {
   echo "Add preprocessing guards to a file."
   echo
   echo "Options:" 
-  echo "  -h, -help      this message and quit."
-  echo "  -v, -verbose   print when headers have or have not got guards unless finding."
-  echo "  -s, -simulate  don't modify files.  Irrelevant if -find."
-  echo "  -f, -find      print files which do not have guards. -v is ignored with this."
+  echo "  -h, -help       this message and quit."
+  echo "  -v, -verbose    print when headers have or have not got guards unless finding."
+  echo "  -s, -simulate   don't modify files.  Irrelevant if -find."
+  echo "  -f, -find       print files which do not have guards. -v is ignored with this."
+  echo "  -P, -prefix STR prefix to the define name.  Otherwise it is just the file basename."
   echo
   echo "Guard matching modes:"
   echo "  -r, -regexp  match regexp #ifndef [A-Z_]+[a-z0-9]+ (this is the default)."
@@ -44,7 +46,14 @@ fi
 
 errors=0
 FILES=""
+capture=""
 for arg in $*; do
+  if test "x$capture" != "x"; then
+    eval ${capture}=${arg}
+    capture=""
+    continue
+  fi
+
   case "$arg" in
     -h |  -help)
     print_help
@@ -61,6 +70,10 @@ for arg in $*; do
 
     -f | -find)
     FIND=1
+    ;;
+
+    -P | -prefix)
+    capture="PREFIX"
     ;;
 
     -r | -regexp)
@@ -104,7 +117,8 @@ TEMP=$(tempfile) || exit 1
 trap "rm -f -- ${TEMP}" EXIT 
 
 for file in $FILES; do
-  header=`echo $file | tr [a-z] [A-Z] | tr .- __`
+  bn=`basename $file`
+  header=`echo ${PREFIX}${bn} | tr [a-z] [A-Z] | tr .- __`
 
   case $MODE in
     $MATCH_REGEXP)
