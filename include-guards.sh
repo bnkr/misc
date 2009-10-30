@@ -48,9 +48,9 @@ print_help() {
   echo "  -f, -find      print files which do not have guards. -v is ignored with this."
   echo
   echo "Guard matching modes:"
-  echo "  -r  match regexp #ifndef [A-Z_]+[a-z0-9]+ (this is the default)."
-  echo "  -n  match the filename in uppercase, like #ifndef BLAH_BLAH_HPP."
-  echo "  -o  match #pragma once."
+  echo "  -r, -regexp  match regexp #ifndef [A-Z_]+[a-z0-9]+ (this is the default)."
+  echo "  -n, -name    match the filename in uppercase, like #ifndef BLAH_BLAH_HPP."
+  echo "  -p, -pragma  match #pragma once."
 }
 
 pwg=`which pwgen.sh`
@@ -78,6 +78,18 @@ for arg in $*; do
 
     -f | -find)
     FIND=1
+    ;;
+
+    -r | -regexp)
+    MODE=$MODE_REGEXP
+    ;;
+
+    -p | -pragma)
+    MODE=$MODE_PRAGMA
+    ;;
+
+    -n | -name)
+    MODE=$MODE_FILE
     ;;
 
     *)
