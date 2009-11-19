@@ -7,16 +7,17 @@ function title_case($a) { return texttools_title_case($a); }
 
 function print_usage() {
   $bin = basename($_SERVER['PHP_SELF']);
-  echo $bin . " [-s] [-r REMOVE] [DIRNAME]\n";
-  $pad = str_repeat(" ", strlen($bin));
+  echo $bin . " [-s] [-r REMOVE] [-d DIRNAME] [-i]\n";
 
-  echo $pad . " -h        print this message and exit.\n";
-  echo $pad . " -s        just print renames (simulate).\n";
-  echo $pad . " -i        ignore files that don't match the guessed format.\n";
-  echo $pad . " -r REMOVE remove the specified string from each filename.  The\n";
+  $pad = '  ';
+  echo "Options:";
+  echo $pad . "-h         print this message and exit.\n";
+  echo $pad . "-s         just print renames (simulate).\n";
+  echo $pad . "-i         ignore files that don't match the guessed format.\n";
+  echo $pad . "-r REMOVE  remove the specified string from each filename.  The\n";
   echo $pad . "           removed string is NOT included in the format secrch.\n";
   echo $pad . "           Seperate multiple strings with commas.\n";
-  echo $pad . " DIRNAME   name of directory containing files (pwd assumed)\n";
+  echo $pad . "-d DIRNAME name of directory containing files (default pwd)\n";
 }
 
 
@@ -30,7 +31,7 @@ $simulate = false;
 $remove   = "";
 $dir      = getcwd();
 
-$OPTIONS = getopt("sr:hi");
+$OPTIONS = getopt("sr:hid:");
 
 $long_help = false;
 foreach ($argv as $arg) {
@@ -54,16 +55,12 @@ else {
 
 $remove = isset($OPTIONS['r']) ? explode(",", $OPTIONS['r']) : null;
 
-$dir = null;
-for ($i = 1; $i < sizeof($argv); ++$i) {
-  if ($argv[$i][0] != '-') {
-    if ($dir) {
-      fwrite(STDERR, "Error: bad argument: $dir -- only one directory may be given.\n");
-    }
-    else {
-      $dir = $argv[$i];
-    }
-  }
+
+if (isset($OPTIONS['d'])) {
+  $dir = $OPTIONS['d'];
+}
+else {
+  $dir = '.';
 }
 
 $exts = array(".mp3", ".m4a", ".ogg", ".avi");
