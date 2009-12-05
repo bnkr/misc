@@ -15,8 +15,9 @@ function print_usage() {
   echo $pad . "-s         just print renames (simulate).\n";
   echo $pad . "-i         ignore files that don't match the guessed format.\n";
   echo $pad . "-r REMOVE  remove the specified string from each filename.  The\n";
-  echo $pad . "           removed string is NOT included in the format secrch.\n";
-  echo $pad . "           Seperate multiple strings with commas.\n";
+  echo $pad . "           removed string is NOT included when detecting music files\n";
+  echo $pad . "           (meaning -r '.mp3' should work.) Seperate multiple strings\n";
+  echo $pad . "           with commas.\n";
   echo $pad . "-d DIRNAME name of directory containing files (default pwd)\n";
 }
 
@@ -64,6 +65,13 @@ else {
 }
 
 $exts = array(".mp3", ".m4a", ".ogg", ".avi");
+
+
+if ($remove) {
+  $rems = "'" . implode("', '", $remove) . "'";
+  echo "Will remove: ${rems}\n";
+}
+
 
 // program
 $dir = format_dir($dir);
