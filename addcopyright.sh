@@ -35,7 +35,7 @@ set_value_option() {
 # Works out the comment character based on the extension (defaults to '#')
 find_comment() {
   case "$1" in
-    *.cpp | *.hpp | *.c | *.h | *.hxx | *.cxx | *.php)
+    *.cpp | *.hpp | *.c | *.h | *.hxx | *.cxx | *.php | *.xxs | *.xh)
       COMMENT="//"
       ;;
     *.rb | *.cmake | */CMakeLists.txt | *.sh)
