@@ -3,7 +3,7 @@
 # message.
 
 FORCE_COMMENT=
-YEAR='2008-2009'
+YEAR=`date +%Y`
 LICENSE="a 3-clause BSD license"
 CHECK=0
 VERBOSE=0
