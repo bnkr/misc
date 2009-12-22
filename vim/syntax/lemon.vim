@@ -124,11 +124,11 @@ endif
 syn cluster lemonCommentGroup contains=lemonTodo
 
 " Single line comments.
-syn match lemonShortComment +//.*$+  contains=@lemonCommentGroup
+syn match lemonShortComment +//.*$+  contains=@lemonCommentGroup,@Spell
 
 " Multi-line (c-style) comments.  If foldmethod is syntax, then this will make
 " it a fold.
-syn region lemonLongComment start='/\*' end='\*/' contains=@lemonCommentGroup fold
+syn region lemonLongComment start='/\*' end='\*/' contains=@lemonCommentGroup,@Spell fold
 
 " Load a sub-syntax into the lemonSubLanguage group.
 fun! LemonLoadSubSyntax(language_file)
