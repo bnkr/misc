@@ -27,6 +27,10 @@ elseif exists("b:current_syntax")
   finish
 endif
 
+" Line continuations will be used.
+let s:cpo_save = &cpo
+set cpo-=C
+
 syn case ignore
 syn match cmakeEscaped /\(\\\\\|\\"\|\\n\|\\t\)/ contained
 syn region cmakeComment start="#" end="$" contains=cmakeTodo
@@ -102,7 +106,8 @@ if version >= 508 || !exists("did_cmake_syntax_inits")
   delcommand HiLink
 endif
 
+" Restore line continuation settings.
+let &cpo = s:cpo_save
+unlet s:cpo_save
+
 let b:current_syntax = "cmake"
-
-"EOF"
-
