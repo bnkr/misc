@@ -24,11 +24,11 @@
 "
 " Highlighting limitations (which could hypothetically be solved):
 "
-" - can't show comment errors like C does (e.g. a lone end long comment)
-" - can't recognise missing period at the end of rules which have no code.
+" - can't recognise missing period at the end of rules which have no code (but
+"   the highlighting should look weird anyway)
 " - can't recognise when code has been given to a directive which doesn't need
 "   it.
-" - doesn't match a lone token/rule as an error, including rules which look like 
+" - doesn't match a lone lower-case as an error, including rules which look like
 "   x y ::= z.
 "
 " Language:    Lemon
@@ -38,6 +38,10 @@
 if exists("b:current_syntax")
   finish
 endif
+
+" I am going to use line continuations (the \ continuing commands.)
+let s:cpo_save = &cpo
+set cpo-=C
 
 " TODO:
 "   Attempting to match a missing period at the end of rule.  Wants:
@@ -51,16 +55,8 @@ endif
 "   block which I'll need some special method to make sure it onlymatches with
 "   rule defs.
 "
-"   ruleBodyError contains ::=, {
-"
-"   Another way: match start=::= end=. contains=@ruleBodyError
-"
-"   This is not completely nice because it'll report an error just for the
-"   operator, and not for the missing period until the operator.
-"
-"   Another way: match the rule body as a transparent start=::= end=} and have
-"   ^\.{ as an error.
-"
+"   Thisis probably a good idea anyway.  Then we can just set errors as
+"   "everything not matched", which would catch things like jumk characters.
 
 " Load a sub-syntax into the lemonSubLanguage group.
 fun! LemonLoadSubSyntax(language_file)
@@ -109,36 +105,33 @@ syn match lemonBlockDirective '%extra_argument'
 
 " Really simple keywords
 syn keyword lemonPredefined   error
-syn match   lemonEquals       /::=/
+syn match   lemonEquals       /::=/ contained
 " Contained means they need to be "activated" with the contains= argument to
 " some region (in this case it will be a comment).
 syn keyword lemonTodo contained TODO XXX FIXME NOTE
 
 " Moan if you put a lone semi-colon anywhere.  This works because the C code
 " part is a region whih overrides this.
+"
+" TODO: 
+"   the changes I made to regions etc. makes this not work.  I need to
+"   have it as contained, I think.
 syn match  lemonError /;/
-" Leading underscores are never allowed.
-syn match  lemonError /_\+/
+" Leading underscores are never allowed.  TODO: that \s should be a word
+" boundary but I can't remember how vim does thoes.
+syn match  lemonError /\s_\+/ms=s+1
+syn match  lemonError /^_\+/
 
 " We'll use this as a sub-match for places which don't allow upper-case words
 " (i.e. grammar tokens) or lower-case words (i.e. rule names).  By using these
 " contained, it means we don't highlight anything except the errors; otherwise
 " you end up with, say, the whole start of the line highlighted.
-"
-" TODO: can't I store the regexp as an alias?
 syn match lemonTokenPlacementError contained /[A-Z][A-Za-z0-9_]*/
 syn match lemonRulePlacementError  contained /[a-z][A-Za-z0-9_]*/
 
 " Upper-case/lower-case words are tokens and rules respectively.
-"
-" TODO:
-"   Beause these are globally matched instead of contained, we can't match lone
-"   tokens and rules as errors.  The solution would be to match these contained
-"   in rule definitions only, but that is a bit tricky due to the
-"   multi-line-ness and the fact that the user can forget to add the terminating
-"   period.
-syn match lemonTokenName    /[A-Z][A-Za-z0-9_]*/
-syn match lemonRuleName     /[a-z][A-Za-z0-9_]*/
+syn match lemonTokenName    /[A-Z][A-Za-z0-9_]*/ contained
+syn match lemonRuleName     /[a-z][A-Za-z0-9_]*/ contained
 " Used only in x ::= expressions so we can have a different colour for
 " rule names when they are in definitions.
 syn match lemonRuleNameDef  /[a-z][A-Za-z0-9_]*/ contained
@@ -146,39 +139,28 @@ syn match lemonRuleNameDef  /[a-z][A-Za-z0-9_]*/ contained
 " Alias for shorter contains=
 syn cluster lemonComments contains=lemonLongComment,lemonShortComment
 
-" TODO: 
-"   It does not seem to be possible to match just a single character.  If the +
-"   is ommited then the match only works for things which are the same length
-"   (i.e. one character).  Maybe there is a match modifider like me=e-1 thing.
-"
-" TODO:
-"   This is disabled because it causes an error to be recognised with
-"   %destructor nonterm { ... }
-" syn match lemonRuleMissingPeriodError     /[a-z]\+\s*{/
-
 " Find rule definitions and put the context-sensitive placement error and rule
 " name def.  Transparent= don't colour it -- inherit color from whatever it's
-" in.
+" in.  me=e-3 removes the equals which we need in otder to math the ruleEnd
+" group.
 "
 " TODO:
-"   Possibly the 'lone identifier' problem could be solved here by matching id
-"   directly after the start is ok but any following ids (before the ::=) are
-"   not.
-syn match lemonRuleStart  /^\([^:]\|[\n]\)\+::=/ transparent
-      \ contains=lemonTokenPlacementError,lemonRuleNameDef,lemonEquals,@lemonComments
+"   This is breaking the global matches (e.g. to stop a lone semiclon).   I
+"   guess it's just an over-enthusiastic.  Because it matches so much, it also
+"   means that we can't match lone rule names or multiple identifiers.
+syn match lemonRuleStart  /^\([^:]\|[\n]\)\+::=/me=e-3 transparent 
+      \ contains=lemonTokenPlacementError,lemonRuleNameDef,@lemonComments
 
-" TODO: none of this works.
-" syn match lemonRuleBody  /::=\([^.]\|[\n]\)\+\./ contains=lemonRuleMissingPeriodError
-" syn region lemonRuleBody 
-"       \ start='\:\:\='
-"       \ end='\.'
-"       \ contains=lemonRuleMissingPeriodError
-" hi link lemonRuleBody Todo
+syn match lemonRuleMissingPeriodError     /{/ contained
 
+syn region lemonRuleEnd transparent keepend
+      \ matchgroup=lemonEquals start='::='
+      \ matchgroup=NONE end='\.'
+      \ contains=lemonRuleMissingPeriodError,lemonTokenName,lemonRuleName,lemonRuleName,lemonTokenName
 
 " Used only in the multi-line directive regions.  Note: a side-effect of this is
 " that the missing period error and the placement errors combine to match the
-" entire directive.  It's ok if you have set nolist but otherwise the trailing 
+" entire directive.  It's ok if you have set nolist but otherwise the trailing
 " spaces aren't highlighted and it looks a bit confusing.
 syn match lemonDirectiveMissingPeriodError /\([^\.]\)\(\s\|\n\)\+%/ contained
 
@@ -260,3 +242,7 @@ hi def link lemonEquals        Operator
 hi def link lemonPredefined    Keyword
 
 let b:current_syntax = 'lemon'
+
+" Restore the line continuation
+let &cpo = s:cpo_save
+unlet s:cpo_save
