@@ -1,10 +1,16 @@
 " Vim syntax file.
 "
-" Highlights source code of the lemon parser generator.
+" Highlights source code of the lemon parser generator, including C or C++
+" source code in the code blocks.
 "
 " Will highlight C or C++ inside rule action code depending on lemon_use_c.
-" Recognises errors in identifiers.  See the end of this file for the default
-" highlighting choices (it's quite colourfull if that bothers you).
+"
+" Recognises errors:
+"
+" - in identifiers (e.g. leading underscore)
+" - tokens (upper-case identifiers) placed at the start of rules
+" - rules (lower-case identifiers) in places where they are not allowed
+" - missing periods at the end of token lists (%left, %right etc.)
 "
 " Vars are as follows.
 "
@@ -14,18 +20,15 @@
 "   - lemon_no_trail_space_error - turns off trailing space errors
 "   - lemon_no_tab_space_error - turns of trailing tab errors
 "
-" Things it can't do that could hypothetically be done.
+" Highlighting limitations (which could hypothetically be solved):
 "
 " - can't show comment errors like C does (e.g. a lone end long comment)
 " - can't recognise missing period at the end of rules (e.g.: rule { code } is
 "   an error but rule . { code }" is not.
-" - can't recognise an list of tokens (e.g. in %left ...) which doesn't have a
-"   period at the end of it.
 " - can't recognise when code has been given to a directive which doesn't need
 "   it.
-" - spaces at the end of lines (this one is easy)
-" - it's probably quite slow -- it defines lots of syntax and then overrides it
-"   later.
+" - doesn't match a lone token/rule as an error
+" - badly formed rule-assignments, like "x y ::="
 "
 " Language:    Lemon
 " Maintainer:  James Webber <bunkerprivate@googlemail.com>
@@ -56,26 +59,38 @@ endif
 "   error.  Could I optimise it so I *only* have to do that one match for
 "   start= and set the start to he token directive?  This doesn't really help me
 "   find the missing period, though.
+"
+"   Note: I think matchgroup is what sets start/end to be a particular group.
 
-" Non-existing directive -- this must go first of course.
-syn match lemonErrorDirective /%[a-z0-9_]\+/
+" Load a sub-syntax into the lemonSubLanguage group.
+fun! LemonLoadSubSyntax(language_file)
+  " Otherwise the file will not define anything.
+  if exists("b:current_syntax")
+    unlet b:current_syntax
+  end
 
-" TODO:
-"   I'm sure this lot can be optimised.  I don't think I can use 'display'
-"   because it needs to match these in order to oeverride the error directive.
+  " Look for a file in ~/.vim first.  Docs imply you don't need to do this, so
+  " maybe I've got it wrong.
+  let s:relative_file = expand("<sfile>:p:h" . a:language_file)
+
+  if filereadable(s:relative_file)
+    exec 'syn include @lemonSubLanguage ' . s:relative_file
+  else
+    exec 'syn include @lemonSubLanguage ' . "$VIMRUNTIME/syntax/" . a:language_file
+  end
+endfun
+
+" Non-existing directive this gets overridden by the real ones.
+syn match lemonNonExistDirective /%[a-z0-9_]\+/
+
+" TODO: would it be faster to have thest as some kind of or?
 
 " Simple property directives.
 syn match lemonBasicDirective '%destructor' 
 syn match lemonBasicDirective '%name' 
 syn match lemonBasicDirective '%stack_size' 
 syn match lemonBasicDirective '%token_prefix'
-
-" Directives which mess with tokens.
-syn match lemonTokDirective '%left' 
-syn match lemonTokDirective '%right' 
-syn match lemonTokDirective '%nonassoc' 
-syn match lemonTokDirective '%start_symbol' 
-syn match lemonTokDirective '%type'
+syn match lemonBasicDirective '%start_symbol' 
 
 " Directives which take code.
 syn match lemonBlockDirective '%include'
@@ -84,14 +99,15 @@ syn match lemonBlockDirective '%parse_failure'
 syn match lemonBlockDirective '%stack_overflow' 
 syn match lemonBlockDirective '%syntax_error'
 syn match lemonBlockDirective '%token_destructor'
-" These two only take a subset of C (just a type) but it still works to
+" These only take a subset of C (just a type) but it still works to
 " highlight them as C.
+syn match lemonBlockDirective '%type'
 syn match lemonBlockDirective '%token_type'
 syn match lemonBlockDirective '%extra_argument'
 
 " Really simple keywords
-syn keyword lemonPredefined error
-syn match   lemonEquals     /::=/
+syn keyword lemonPredefined   error
+syn match   lemonEquals       /::=/
 " Contained means they need to be "activated" with the contains= argument to
 " some region (in this case it will be a comment).
 syn keyword lemonTodo contained TODO XXX FIXME NOTE
@@ -99,16 +115,60 @@ syn keyword lemonTodo contained TODO XXX FIXME NOTE
 " Moan if you put a lone semi-colon anywhere.  This works because the C code
 " part is a region whih overrides this.
 syn match  lemonError /;/
-" Leading underscores are not allowed.
+" Leading underscores are never allowed.
 syn match  lemonError /_\+/
 
-" Upper-case words become tokens.
-syn match lemonToken     /[A-Z][A-Z0-9_]*/
-syn match lemonRuleUse   /[a-z][a-z0-9_]*/
-" Now un-match from RuleUse to get the rule definitions.
-" TODO: this leaves the begning of the line highlighed.  That would be bad if the
-" user has set their RuleDef class to have a coloured background.
-syn match lemonRuleDef   /^\s*[a-z][a-z0-9_]*/
+" We'll use this as a sub-match for places which don't allow upper-case words
+" (i.e. grammar tokens) or lower-case words (i.e. rule names).  By using these
+" contained, it means we don't highlight anything except the errors; otherwise
+" you end up with, say, the whole start of the line highlighted.
+"
+" TODO: can't I store the regexp as an alias?
+syn match lemonTokenPlacementError contained /[A-Z][A-Za-z0-9_]*/
+syn match lemonRulePlacementError  contained /[a-z][A-Za-z0-9_]*/
+
+" Used only in the multi-line directive regions.
+syn match lemonDirectiveMissingPeriodError /%/ contained
+
+" Upper-case/lower-case words are tokens and rules respectively.
+"
+" TODO:
+"   Beause these are globally matched instead of contained, we can't match lone
+"   tokens and rules as errors.  The solution would be to match these contained
+"   in rule definitions only, but that is a bit tricky due to the
+"   multi-line-ness and the fact that the user can forget to add the terminating
+"   period.
+syn match lemonTokenName    /[A-Z][A-Za-z0-9_]*/
+syn match lemonRuleName     /[a-z][A-Za-z0-9_]*/
+" Used only in x ::= expressions so we can have a different colour for
+" rule names when they are in definitions.
+syn match lemonRuleNameDef  /[a-z][A-Za-z0-9_]*/ contained
+
+
+" Alias for shorter contains=
+syn cluster lemonComments contains=lemonLongComment,lemonShortComment
+
+" Find rule definitions and put the context-sensitive placement error and rule
+" name def.  Transparent= don't colour it -- inherit color from whatever it's
+" in.
+"
+" TODO: 
+"   It is valid lemon to have x \n ::=.  This won't realise that.
+syn match lemonRuleStart  /^[^:]\+::=/ transparent
+      \ contains=lemonTokenPlacementError,lemonRuleNameDef,lemonEquals,@lemonComments
+
+" Same again for rules placed in the token rule.  Matchgroup says "match the
+" next start *and* end as something".  Therefore we use NONE to turn it off for
+" the end.
+"
+" TODO: 
+"   unintended side-effect: the missing period error detects and the rule
+"   placecment error combine to 
+syn region lemonTokens transparent 
+      \ matchgroup=lemonTokDirective start="%left" start="%right" start="%nonassoc"
+      \ matchgroup=NONE end='\.'
+      \ contains=lemonRulePlacementError,lemonTokenName,@lemonComments,
+      \          lemonDirectiveMissingPeriodError
 
 if exists("lemon_space_errors")
   if ! exists("lemon_no_trail_space_error")
@@ -130,24 +190,6 @@ syn match lemonShortComment +//.*$+  contains=@lemonCommentGroup,@Spell
 " it a fold.
 syn region lemonLongComment start='/\*' end='\*/' contains=@lemonCommentGroup,@Spell fold
 
-" Load a sub-syntax into the lemonSubLanguage group.
-fun! LemonLoadSubSyntax(language_file)
-  " Otherwise the file will not define anything.
-  if exists("b:current_syntax")
-    unlet b:current_syntax
-  end
-
-  " Look for a file in ~/.vim first.  Docs imply you don't need to do this, so
-  " maybe I've got it wrong.
-  let s:relative_file = expand("<sfile>:p:h" . a:language_file)
-
-  if filereadable(s:relative_file)
-    exec 'syn include @lemonSubLanguage ' . s:relative_file
-  else
-    exec 'syn include @lemonSubLanguage ' . "$VIMRUNTIME/syntax/" . a:language_file
-  end
-endfun
-
 if exists("g:lemon_use_c")
   call LemonLoadSubSyntax('c.vim')
 else
@@ -163,10 +205,15 @@ syn region lemonCode start="{" end="}" fold keepend contains=@lemonSubLanguage
 hi def link lemonTokDirective      lemonDirective
 hi def link lemonBlockDirective    lemonDirective
 hi def link lemonBasicDirective    lemonDirective
-hi def link lemonErrorDirective    lemonError
 hi def link lemonShortComment      lemonComment
 hi def link lemonLongComment       lemonComment
-hi def link lemonSpaceError        lemonError
+
+hi def link lemonNonExistDirective    lemonError
+hi def link lemonSpaceError           lemonError
+hi def link lemonTokenPlacementError  lemonError
+hi def link lemonRulePlacementError   lemonError
+hi def link lemonDirectiveMissingPeriodError
+                                    \ lemonError
 
 " Default highlight groups: link generic groups to default groups..
 hi def link lemonDirective Statement
@@ -175,9 +222,9 @@ hi def link lemonComment   Comment
 
 " Stuff which is already generic enough.  Some artistic license here, I guess ;).
 hi def link lemonTodo          Todo
-hi def link lemonToken         Define
-hi def link lemonRuleDef       Structure
-hi def link lemonRuleUse       Constant
+hi def link lemonTokenName     Define
+hi def link lemonRuleName      Constant
+hi def link lemonRuleNameDef   Structure
 hi def link lemonEquals        Operator
 hi def link lemonPredefined    Keyword
 
