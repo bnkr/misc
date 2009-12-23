@@ -11,6 +11,8 @@
 " - tokens (upper-case identifiers) placed at the start of rules
 " - rules (lower-case identifiers) in places where they are not allowed
 " - missing periods at the end of token lists (%left, %right etc.)
+" - missing preiods at the end of rules before code (but not at the end of
+"   rules with no code).
 "
 " Vars are as follows.
 "
@@ -23,12 +25,11 @@
 " Highlighting limitations (which could hypothetically be solved):
 "
 " - can't show comment errors like C does (e.g. a lone end long comment)
-" - can't recognise missing period at the end of rules (e.g.: rule { code } is
-"   an error but rule . { code }" is not.
+" - can't recognise missing period at the end of rules which have no code.
 " - can't recognise when code has been given to a directive which doesn't need
 "   it.
-" - doesn't match a lone token/rule as an error
-" - badly formed rule-assignments, like "x y ::="
+" - doesn't match a lone token/rule as an error, including rules which look like 
+"   x y ::= z.
 "
 " Language:    Lemon
 " Maintainer:  James Webber <bunkerprivate@googlemail.com>
@@ -50,17 +51,16 @@ endif
 "   block which I'll need some special method to make sure it onlymatches with
 "   rule defs.
 "
-" TODO:
-"   Missing period at the end of a token list?  It would be %directive followed
-"   by any number of tokens followed by anything that isn't a token.  How do I
-"   match the sub-error, though?  
+"   ruleBodyError contains ::=, {
 "
-"   I could do a region with start=%(any token directive) and a contains=the
-"   error.  Could I optimise it so I *only* have to do that one match for
-"   start= and set the start to he token directive?  This doesn't really help me
-"   find the missing period, though.
+"   Another way: match start=::= end=. contains=@ruleBodyError
 "
-"   Note: I think matchgroup is what sets start/end to be a particular group.
+"   This is not completely nice because it'll report an error just for the
+"   operator, and not for the missing period until the operator.
+"
+"   Another way: match the rule body as a transparent start=::= end=} and have
+"   ^\.{ as an error.
+"
 
 " Load a sub-syntax into the lemonSubLanguage group.
 fun! LemonLoadSubSyntax(language_file)
@@ -83,10 +83,11 @@ endfun
 " Non-existing directive this gets overridden by the real ones.
 syn match lemonNonExistDirective /%[a-z0-9_]\+/
 
-" TODO: would it be faster to have thest as some kind of or?
+" TODO: 
+"   Would it be faster to have these as some kind of or?  It must match all of
+"   them and override later...
 
 " Simple property directives.
-syn match lemonBasicDirective '%destructor' 
 syn match lemonBasicDirective '%name' 
 syn match lemonBasicDirective '%stack_size' 
 syn match lemonBasicDirective '%token_prefix'
@@ -94,6 +95,7 @@ syn match lemonBasicDirective '%start_symbol'
 
 " Directives which take code.
 syn match lemonBlockDirective '%include'
+syn match lemonBlockDirective '%destructor' 
 syn match lemonBlockDirective '%parse_accept' 
 syn match lemonBlockDirective '%parse_failure' 
 syn match lemonBlockDirective '%stack_overflow' 
@@ -127,9 +129,6 @@ syn match  lemonError /_\+/
 syn match lemonTokenPlacementError contained /[A-Z][A-Za-z0-9_]*/
 syn match lemonRulePlacementError  contained /[a-z][A-Za-z0-9_]*/
 
-" Used only in the multi-line directive regions.
-syn match lemonDirectiveMissingPeriodError /%/ contained
-
 " Upper-case/lower-case words are tokens and rules respectively.
 "
 " TODO:
@@ -144,27 +143,49 @@ syn match lemonRuleName     /[a-z][A-Za-z0-9_]*/
 " rule names when they are in definitions.
 syn match lemonRuleNameDef  /[a-z][A-Za-z0-9_]*/ contained
 
-
 " Alias for shorter contains=
 syn cluster lemonComments contains=lemonLongComment,lemonShortComment
+
+" TODO: 
+"   It does not seem to be possible to match just a single character.  If the +
+"   is ommited then the match only works for things which are the same length
+"   (i.e. one character).  Maybe there is a match modifider like me=e-1 thing.
+"
+" TODO:
+"   This is disabled because it causes an error to be recognised with
+"   %destructor nonterm { ... }
+" syn match lemonRuleMissingPeriodError     /[a-z]\+\s*{/
 
 " Find rule definitions and put the context-sensitive placement error and rule
 " name def.  Transparent= don't colour it -- inherit color from whatever it's
 " in.
 "
-" TODO: 
-"   It is valid lemon to have x \n ::=.  This won't realise that.
-syn match lemonRuleStart  /^[^:]\+::=/ transparent
+" TODO:
+"   Possibly the 'lone identifier' problem could be solved here by matching id
+"   directly after the start is ok but any following ids (before the ::=) are
+"   not.
+syn match lemonRuleStart  /^\([^:]\|[\n]\)\+::=/ transparent
       \ contains=lemonTokenPlacementError,lemonRuleNameDef,lemonEquals,@lemonComments
+
+" TODO: none of this works.
+" syn match lemonRuleBody  /::=\([^.]\|[\n]\)\+\./ contains=lemonRuleMissingPeriodError
+" syn region lemonRuleBody 
+"       \ start='\:\:\='
+"       \ end='\.'
+"       \ contains=lemonRuleMissingPeriodError
+" hi link lemonRuleBody Todo
+
+
+" Used only in the multi-line directive regions.  Note: a side-effect of this is
+" that the missing period error and the placement errors combine to match the
+" entire directive.  It's ok if you have set nolist but otherwise the trailing 
+" spaces aren't highlighted and it looks a bit confusing.
+syn match lemonDirectiveMissingPeriodError /\([^\.]\)\(\s\|\n\)\+%/ contained
 
 " Same again for rules placed in the token rule.  Matchgroup says "match the
 " next start *and* end as something".  Therefore we use NONE to turn it off for
 " the end.
-"
-" TODO: 
-"   unintended side-effect: the missing period error detects and the rule
-"   placecment error combine to 
-syn region lemonTokens transparent 
+syn region lemonTokDirectiveRegion transparent keepend
       \ matchgroup=lemonTokDirective start="%left" start="%right" start="%nonassoc"
       \ matchgroup=NONE end='\.'
       \ contains=lemonRulePlacementError,lemonTokenName,@lemonComments,
@@ -187,8 +208,15 @@ syn cluster lemonCommentGroup contains=lemonTodo
 syn match lemonShortComment +//.*$+  contains=@lemonCommentGroup,@Spell
 
 " Multi-line (c-style) comments.  If foldmethod is syntax, then this will make
-" it a fold.
-syn region lemonLongComment start='/\*' end='\*/' contains=@lemonCommentGroup,@Spell fold
+" it a fold.  Putting matchgroup in stops the long comments starts being
+" highlighted as comment start errors.
+syn region lemonLongComment fold keepend
+      \ matchgroup=lemonLongComment start='/\*' 
+      \ end='\*/' 
+      \ contains=@lemonCommentGroup,@Spell,lemonLongCommentError 
+
+" me=e-1 means match-end = real end - 1.  This gets rid of the star.
+syn match lemonLongCommentError display "/\*"me=e-1 contained
 
 if exists("g:lemon_use_c")
   call LemonLoadSubSyntax('c.vim')
@@ -214,6 +242,9 @@ hi def link lemonTokenPlacementError  lemonError
 hi def link lemonRulePlacementError   lemonError
 hi def link lemonDirectiveMissingPeriodError
                                     \ lemonError
+hi def link lemonRuleMissingPeriodError
+                                    \ lemonError
+hi def link lemonLongCommentError     lemonError
 
 " Default highlight groups: link generic groups to default groups..
 hi def link lemonDirective Statement
