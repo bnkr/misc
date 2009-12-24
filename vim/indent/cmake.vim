@@ -8,7 +8,8 @@
 
 " Vim indent file.
 "
-" This was modified on Dec 2009 by James Webber (to add the lone_bracket stuff).
+" This was modified on Dec 2009 by James Webber (to add the lone_rparen stuff).
+"
 " All license terms remain the same.
 "
 " This is copied from the original file:
@@ -72,17 +73,19 @@ fun! CMakeGetIndent(lnum)
   let cmake_indent_begin_regex = '^\s*\(IF\|MACRO\|FOREACH\|ELSE\|ELSEIF\|WHILE\|FUNCTION\)\s*('
   let cmake_indent_end_regex = '^\s*\(ENDIF\|ENDFOREACH\|ENDMACRO\|ELSE\|ELSEIF\|ENDWHILE\|ENDFUNCTION\)\s*('
 
-  let cmake_lone_bracket_regex = '^\s*)\s*$'
+  let cmake_lone_rparen_regex = '^\s*)\s*$'
+  let cmake_lone_lparen_regex = '^\s*(\s*$'
 
-  if this_line =~? cmake_lone_bracket_regex
+  if this_line =~? cmake_lone_rparen_regex
     " handles "func(\n)" (i.e. a call with no arguments but the bracket is on
     " a newline anyway.
-    if previous_line  =~? cmake_indent_open_regex
+    if previous_line  =~? cmake_indent_open_regex || previous_line =~? cmake_lone_lparen_regex
       let ind = ind
     else
       let ind = ind - &sw
+
     end
-  elseif previous_line =~? cmake_lone_bracket_regex
+  elseif previous_line =~? cmake_lone_rparen_regex
     if this_line =~? cmake_indent_end_regex
       let ind = ind - &sw
     end
