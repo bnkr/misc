@@ -24,6 +24,14 @@
 "               http://www.cmake.org/HTML/Copyright.html
 "               This implies that distribution with Vim is allowed
 
+" TODO:  
+"   The de-indent is still a little enthusiastic.  Example:
+"
+"     VAR VAL VAL
+"         VAL <-- tries to indent this all the bloody time!
+"
+"   Perhaps I need to check for an openbrack on the preceding line.
+
 if exists("b:did_indent")
   finish
 endif

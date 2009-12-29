@@ -37,6 +37,9 @@ endif
 "
 " - Predefined vars (or at least system vars).  Colour of Define I suppose;
 "   constant could be better as it is different from the substitutions.
+"
+" - The environment varible thing.  \$?ENV{.*?} contains=substitution contained.
+"   It is contained in parencode.
 
 " Line continuations will be used.
 let s:cpo_save = &cpo
@@ -64,7 +67,7 @@ syn match cmakeFunctionCallMatch /[a-zA-Z0-9_]\+\(\s\|\n\)*(/me=e-1 contains=cma
 
 " An uncontained match for bad characters; i.e. those which aren't allowed
 " outside paren'ed code.
-syn match cmakeCharError /[;.]/
+syn match cmakeCharError /[;.{}]/
 
 """"""""""""""""""""""""""""""""""""""""""""""""""""
 " CMake instrinsics and context-sensitive keywords "
@@ -137,7 +140,7 @@ syn cluster cmakeParenCode contains=cmakeSubstitution,cmakeString,cmakeComment,c
 syn match cmakeParenError /.(/ms=s+1 contained
 
 " The basic function parameters.
-syn region cmakeParenRegion start='(' end=')' contains=@cmakeParenCode,cmakeParenError
+syn region cmakeParenRegion start='(' end=')' contains=@cmakeParenCode,cmakeParenError,cmakeCharError
 
 syn case ignore
 " This is just matching the first line of an if, not the entire thing.
