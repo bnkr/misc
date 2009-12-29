@@ -38,8 +38,6 @@ endif
 " - Predefined vars (or at least system vars).  Colour of Define I suppose;
 "   constant could be better as it is different from the substitutions.
 "
-" - The environment varible thing.  \$?ENV{.*?} contains=substitution contained.
-"   It is contained in parencode.
 
 " Line continuations will be used.
 let s:cpo_save = &cpo
@@ -127,13 +125,21 @@ syn keyword cmakeConstant contained
 "   Match predefined variables and system variables as contained.  We can't have
 "   them uncontained or we'll end up matching them in places we don't want.
 
+syn match cmakeEnvironmentSet /ENV{[a-zA-Z0-9_]*}/   contained
+syn match cmakeEnvironmentSub /\$ENV{[a-zA-Z0-9_]*}/ contained
+
 """"""""""""""""""""""""""""""
 " Parenthesised code regions "
 """"""""""""""""""""""""""""""
 
 " Alias for everthing that can go in parens, but not including things like
 " operators or special arguments.
-syn cluster cmakeParenCode contains=cmakeSubstitution,cmakeString,cmakeComment,cmakeConstant
+"
+" Note: not exactly perfect because cmakeEnvironmentSet is only allowed in a
+" set().
+syn cluster cmakeParenCode 
+      \ contains=cmakeSubstitution,cmakeString,cmakeComment,cmakeConstant,
+      \   cmakeEnvironmentSet,cmakeEnvironmentSub
 
 " Set the match start to skip the leading character.  The character is needed
 " because we don't want to match an lparen at the very start of the region.
@@ -223,17 +229,17 @@ if exists('cmake_ending_errors')
 
   " Here is one try:
   "
-  " syn region cmakeForeachCheckRegion transparent keepend
+  " syn region cmakeForeachCheckRegion transparent 
   "       \ start='foreach' end='endforeach' 
   "       \ matchgroup=cmakeEndingError
   "       \   end='endmacro' end='endwhile' end='endif' end='endfunction'
   "       \ contains=@cmakeEverythingButMacros
-  " syn region cmakeIfCheckRegion transparent keepend
+  " syn region cmakeIfCheckRegion transparent 
   "       \ start='if' skip='\(else\)|\(elseif\)' end='endif' 
   "       \ matchgroup=cmakeEndingError
   "       \   end='endmacro' end='endwhile' end='endforeach' end='endfunction'
   "       \ contains=@cmakeEverythingButMacros
-  " syn region cmakeWhileCheckRegion transparent keepend
+  " syn region cmakeWhileCheckRegion transparent 
   "       \ start='while' end='endwhile'
   "       \ matchgroup=cmakeEndingError
   "       \   end='endmacro' end='endforeach' end='endif' end='endfunction'
@@ -286,6 +292,10 @@ hi def link cmakeTodo             Todo
 hi def link cmakeEscape           Special
 hi def link cmakeString           String
 hi def link cmakeSubstitution     Define
+
+hi def link cmakeEnvironmentSet   cmakeEnvironment
+hi def link cmakeEnvironmentSub   cmakeEnvironment
+hi def link cmakeEnvironment      Special
 
 " Artistic license?  Struct is normally dark and that looks better since we use
 " the define colours eveywhere else.
