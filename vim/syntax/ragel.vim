@@ -1,128 +1,127 @@
 " Vim syntax file
 "
+" These variables are used:
+"
+" - ragel_lang
+"
 " Language: Ragel
-" Author: Adrian Thurston
+" Author: Adrian Thurston (modified by James Webber)
 
-syntax clear
+if exists("b:current_syntax")
+  finish
+endif
 
+" TODO:
+"   Main problem is that C++ code *after* the state machine is highlighted
+"   completely wrongly.  Identifiers seem to become operators or similar
+"   (yellow) by default even outside of the machine spec.
 "
-" Outside code
+"   It can't deal with it at all when you can't see the start of the machine.
+"   Maybe this is the 
 "
+"   #define at the start of the file is matched as a comment?!
+"
+"   The character class match breaks everything, even though it's contained?!
+"
+"   It seems that a lot of contained stuff is being matched outside where it is
+"   supposed to be contained... perhaps the C is using a CONTAINED,except ?
 
-" Comments
-syntax region ocComment start="\/\*" end="\*\/"
-syntax match ocComment "\/\/.*$"
+syn sync fromstart
 
-" Anything preprocessor
-syntax match ocPreproc "#.*$"
+" Load a sub-syntax into the rlSubLang group.
+fun! RagelLoadLangSyntax(language_file)
+  " Otherwise the file will not define anything.
+  if exists("b:current_syntax")
+    unlet b:current_syntax
+  end
 
-" Strings
-syntax match ocLiteral "'\(\\.\|[^'\\]\)*'"
-syntax match ocLiteral "\"\(\\.\|[^\"\\]\)*\""
+  " Look for a file in ~/.vim first.  Docs imply you don't need to do this, so
+  " maybe I've got it wrong.
+  let s:relative_file = expand("<sfile>:p:h" . a:language_file)
 
-" C/C++ Keywords
-syntax keyword ocType unsigned signed void char short int long float double bool
-syntax keyword ocType inline static extern register const volatile auto
-syntax keyword ocType union enum struct class typedef
-syntax keyword ocType namespace template typename mutable
-syntax keyword ocKeyword break continue default do else for
-syntax keyword ocKeyword goto if return switch while
-syntax keyword ocKeyword new delete this using friend public private protected sizeof
-syntax keyword ocKeyword throw try catch operator typeid
-syntax keyword ocKeyword and bitor xor compl bitand and_eq or_eq xor_eq not not_eq
-syntax keyword ocKeyword static_cast dynamic_cast
+  if filereadable(s:relative_file)
+    exec 'syn include @rlSubLang ' . s:relative_file
+  else
+    exec 'syn include @rlSubLang ' . "$VIMRUNTIME/syntax/" . a:language_file
+  end
+endfun
 
-" D Keywords
-syntax keyword ocType wchar dchar bit byte ubyte ushort uint ulong cent ucent 
-syntax keyword ocType cfloat ifloat cdouble idouble real creal ireal
-syntax keyword ocKeyword abstract alias align asm assert body cast debug delegate
-syntax keyword ocKeyword deprecated export final finally foreach function import in inout 
-syntax keyword ocKeyword interface invariant is mixin module out override package pragma
-syntax keyword ocKeyword super synchronized typeof unittest version with
+" Will this work for local files?
+runtime! syntax/cpp.vim
 
-" Java Keywords
-syntax keyword ocType byte short char int
-
-" Objective-C Directives
-syntax match ocKeyword "@public\|@private\|@protected"
-syntax match ocKeyword "@interface\|@implementation"
-syntax match ocKeyword "@class\|@end\|@defs"
-syntax match ocKeyword "@encode\|@protocol\|@selector"
-
-" Numbers
-syntax match ocNumber "[0-9][0-9]*"
-syntax match ocNumber "0x[0-9a-fA-F][0-9a-fA-F]*"
-
-" Booleans
-syntax keyword ocBoolean true false
+call RagelLoadLangSyntax('cpp.vim')
 
 " Identifiers
-syntax match anyId "[a-zA-Z_][a-zA-Z_0-9]*"
+syntax match rlIdentifier "[a-zA-Z_][a-zA-Z_0-9]*" contained
 
 " Inline code only
-syntax keyword fsmType fpc fc fcurs fbuf fblen ftargs fstack
-syntax keyword fsmKeyword fhold fgoto fcall fret fentry fnext fexec fbreak
+syntax keyword rlFsmType fpc fc fcurs fbuf fblen ftargs fstack contained
+syntax keyword rlFsmKeyword fhold fgoto fcall fret fentry fnext fexec fbreak contained
 
-syntax cluster rlItems contains=rlComment,rlLiteral,rlAugmentOps,rlOtherOps,rlKeywords,rlWrite,rlCodeCurly,rlCodeSemi,rlNumber,anyId,rlLabelColon,rlExprKeywords
+syntax cluster rlItems contains=rlComment,rlLiteral,rlAugmentOps,rlOtherOps,rlKeywords,rlWrite,rlCodeCurly,rlCodeSemi,rlNumber,rlIdentifier,rlLabelColon,rlExprKeywords
 
-syntax region machineSpec1 matchgroup=beginRL start="%%{" end="}%%" contains=@rlItems
-syntax region machineSpec2 matchgroup=beginRL start="%%[^{]"rs=e-1 end="$" keepend contains=@rlItems
-syntax region machineSpec2 matchgroup=beginRL start="%%$" end="$" keepend contains=@rlItems
+syntax region rlMachineSpec1 matchgroup=rlBegin start="%%{" end="}%%" contains=@rlItems
+syntax region rlMachineSpec2 matchgroup=rlBegin start="%%[^{]"rs=e-1 end="$" keepend contains=@rlItems
+syntax region rlMachineSpec2 matchgroup=rlBegin start="%%$" end="$" keepend contains=@rlItems
 
 " Comments
+" TODO: 
+"   this gets matched as a comment on the second line of a preproc directive at
+"   the start of the file (i.e. not in the state machine), as in #define.
+"   WTF?!?!?!
 syntax match rlComment "#.*$" contained
 
 " Literals
-syntax match rlLiteral "'\(\\.\|[^'\\]\)*'[i]*" contained
+syntax match rlLiteral "'\(\\.\|[^'\\]\)*'[i]*"    contained
 syntax match rlLiteral "\"\(\\.\|[^\"\\]\)*\"[i]*" contained
 syntax match rlLiteral /\/\(\\.\|[^\/\\]\)*\/[i]*/ contained
-syntax match rlLiteral "\[\(\\.\|[^\]\\]\)*\]" contained
+" TODO: this breaks the C++ code, even though it's contained.  Wtf?!
+" syntax match rlLiteral "\[\(\\.\|[^\]\\]\)*\]"     contained
 
 " Numbers
-syntax match rlNumber "[0-9][0-9]*" contained
+syntax match rlNumber "[0-9][0-9]*"               contained
 syntax match rlNumber "0x[0-9a-fA-F][0-9a-fA-F]*" contained
 
 " Operators
-syntax match rlAugmentOps "[>$%@]" contained
-syntax match rlAugmentOps "<>\|<" contained
+syntax match rlAugmentOps "[>$%@]"           contained
+syntax match rlAugmentOps "<>\|<"            contained
 syntax match rlAugmentOps "[>\<$%@][!\^/*~]" contained
-syntax match rlAugmentOps "[>$%]?" contained
-syntax match rlAugmentOps "<>[!\^/*~]" contained
-syntax match rlAugmentOps "=>" contained
-syntax match rlOtherOps "->" contained
+syntax match rlAugmentOps "[>$%]?"           contained
+syntax match rlAugmentOps "<>[!\^/*~]"       contained
+syntax match rlAugmentOps "=>"               contained
+syntax match rlOtherOps   "->"               contained
 
-syntax match rlOtherOps ":>" contained
-syntax match rlOtherOps ":>>" contained
-syntax match rlOtherOps "<:" contained
+" TODO: these never get matched.
+syntax match rlOtherOps   "<:"  contained
+syntax match rlOtherOps   ":>"  contained
+syntax match rlOtherOps   ":>>" contained
 
 " Keywords
 " FIXME: Enable the range keyword post 5.17.
 " syntax keyword rlKeywords machine action context include range contained
-syntax keyword rlKeywords machine action context include import export prepush postpop contained
-syntax keyword rlExprKeywords when inwhen outwhen err lerr eof from to contained
+syntax keyword rlKeywords     contained machine action context include import export prepush postpop
+syntax keyword rlExprKeywords contained when inwhen outwhen err lerr eof from to
 
-" Case Labels
-syntax keyword caseLabelKeyword case contained
-syntax cluster caseLabelItems contains=ocComment,ocPreproc,ocLiteral,ocType,ocKeyword,caseLabelKeyword,ocNumber,ocBoolean,anyId,fsmType,fsmKeyword
-syntax match caseLabelColon "case" contains=@caseLabelItems
-syntax match caseLabelColon "case[\t ]\+.*:$" contains=@caseLabelItems
-syntax match caseLabelColon "case[\t ]\+.*:[^=:]"me=e-1 contains=@caseLabelItems
-
-" Labels
-syntax match ocLabelColon "^[\t ]*[a-zA-Z_][a-zA-Z_0-9]*[ \t]*:$" contains=anyLabel
-syntax match ocLabelColon "^[\t ]*[a-zA-Z_][a-zA-Z_0-9]*[ \t]*:[^=:]"me=e-1 contains=anyLabel
-
-syntax match rlLabelColon "[a-zA-Z_][a-zA-Z_0-9]*[ \t]*:$" contained contains=anyLabel
-syntax match rlLabelColon "[a-zA-Z_][a-zA-Z_0-9]*[ \t]*:[^=:>]"me=e-1 contained contains=anyLabel
-syntax match anyLabel "[a-zA-Z_][a-zA-Z_0-9]*" contained
+syntax match rlLabelColon "[a-zA-Z_][a-zA-Z_0-9]*[ \t]*:$" contained contains=rlLabel
+syntax match rlLabelColon "[a-zA-Z_][a-zA-Z_0-9]*[ \t]*:[^=:>]"me=e-1 contained contains=rlLabel
+syntax match rlLabel "[a-zA-Z_][a-zA-Z_0-9]*" contained
 
 " All items that can go in a code block.
+syntax cluster rlInlineItems 
+      \ contains=rlIdentifier,rlFsmType,rlFsmKeyword,caseLabelColon,@rlSubCurly,@rlSubLang,
 
-syntax cluster inlineItems contains=rlCodeCurly,ocComment,ocPreproc,ocLiteral,ocType,ocKeyword,ocNumber,ocBoolean,ocLabelColon,anyId,fsmType,fsmKeyword,caseLabelColon
+" Hack to get sub-brackets to work when there are multiple levels of braced
+" code.  I think it's to do with how brackets are specified with/without keepend 
+" in the sub-language.  This is recursive via. rlInlineItems.  If you don't do
+" this then the first '}' is matched as the end of region.  There's probably a
+" better way to do this.
+syntax region rlSubCurly start='{' end='}' contained keepend contains=@rlInlineItems
 
-" Blocks of code. rlCodeCurly is recursive.
-syntax region rlCodeCurly matchgroup=NONE start="{" end="}" contained contains=@inlineItems
-syntax region rlCodeSemi matchgroup=Type start="\<alphtype\>" start="\<getkey\>" start="\<access\>" start="\<variable\>" matchgroup=NONE end=";" contained contains=@inlineItems
+" Blocks of code.
+syntax region rlCodeCurly matchgroup=Operator start="{" end="}" contained contains=rlSubCurly,@rlInlineItems
+syntax region rlCodeSemi matchgroup=Type contained keepend contains=@rlInlineItems
+      \ start="\<alphtype\>" start="\<getkey\>" start="\<access\>" start="\<variable\>" 
+      \ matchgroup=NONE end=";"
 
 syntax region rlWrite matchgroup=Type start="\<write\>" matchgroup=NONE end="[;)]" contained contains=rlWriteKeywords,rlWriteOptions
 
@@ -141,13 +140,7 @@ syntax sync match ragelSyncPat grouphere NONE "^[^\'\"]*}%%"
 "
 " Specifying Groups
 "
-hi link ocComment Comment
-hi link ocPreproc Macro
-hi link ocLiteral String
-hi link ocType Type
-hi link ocKeyword Keyword
-hi link ocNumber Number
-hi link ocBoolean Boolean
+
 hi link rlComment Comment
 hi link rlNumber Number
 hi link rlLiteral String
@@ -156,11 +149,11 @@ hi link rlExprKeywords Keyword
 hi link rlWriteKeywords Keyword
 hi link rlWriteOptions Keyword
 hi link rlKeywords Type
-hi link fsmType Type
-hi link fsmKeyword Keyword
-hi link anyLabel Label
-hi link caseLabelKeyword Keyword
-hi link beginRL Type
+
+hi link rlFsmType Type
+hi link rlFsmKeyword Keyword
+hi link rlLabel Label
+hi link rlBegin Type
  
 let b:current_syntax = "ragel"
 
