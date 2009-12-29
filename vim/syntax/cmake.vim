@@ -20,6 +20,8 @@
 " - cmake_extra_predefs -- extra highlighting for a subset of cmake functions.
 "   This will recognise the named parameter arguments and possibly some extra
 "   errors.  Very little is implemented.
+" - cmake_ending_errors -- search for mismtached macro/endmacro etc.  These kind
+"   of things are always iffy in vim; you might need to up the sync level a lot.
 
 if exists("b:current_syntax")
   finish
@@ -27,11 +29,8 @@ endif
 
 " Main Todo:
 "
-" - cmakeUserFunctionCall and cmakeFuncDefineName match too much.  I want to
-"   stop at the end of the identifier.  Do I seriously need a sub-match just for
-"   that?
-"
-" - error checking regions aren't done.
+" - error checking regions (cmake_ending_errors) aren't working properly -- they
+"   don't recurse correctly.
 "
 " - Colours aren't that nice.  I think I prefer function calls as normal, and
 "   any other identifier as identifiers.
@@ -188,20 +187,73 @@ end
 " Attempting to match each recursive part of the cmake file.  Since contains=
 " turns off transparent (or so it seems), we need to use the TOP rule, which
 " functions to contain all top-level rules.
-"
-" TODO: how do you use TOP the subcheckregions?  Maybe containedin?
 
-" syn cluster cmakeSubCheckRegions contains=cmakeForeachCheckRegion,cmakeWhileCheckRegion,cmakeIfCheckRegion
-" syn region cmakeFuncCheckRegion transparent keepend fold contains=@cmakeSubCheckRegions
-"       \ start='function' end='endfunction' 
-" syn region cmakeMacroCheckRegion transparent keepend fold contains=cmakeMacroCheckError
-"       \ start='macro' end='endmacro'  
-" syn region cmakeForeachCheckRegion transparent keepend start='foreach' end='endforeach' contains=@cmakeSubCheckRegions
-" syn region cmakeWhileCheckRegion transparent keepend start='while' end='endwhile' contains=@cmakeSubCheckRegions
-" syn region cmakeIfCheckRegion transparent keepend start='if' skip='\(else\)|\(elseif\)' end='endif' contains=@cmakeSubCheckRegions
+if exists('cmake_ending_errors')
+  syn case ignore
 
-syn region cmakeFuncCheckRegion  transparent fold start='function' end='endfunction'
-syn region cmakeMacroCheckRegion transparent fold start='macro'    end='endmacro'
+  " This sort of works, but lone end macro/functions aren't marked as errors.
+  syn region cmakeFuncCheckRegion fold transparent
+        \ start='function' end='endfunction'
+        \ matchgroup=cmakeEndingError end='endmacro'
+  syn region cmakeMacroCheckRegion fold transparent
+        \ start='macro' end='endmacro'
+        \ matchgroup=cmakeEndingError end='endfunction'
+
+  " TODO:
+  "   None of this works properly.  Some errors are reported; some are not.
+  "   Maybe precedence problems?
+
+  " I'm sure I've got this wrong, but it seems that if you specify the correct
+  " ending of the region, it won't get matched by the end= of the region, even
+  " though keepend is on.  Perhaps it's to do with precedence and using syn match
+  " would work?
+
+  " syn keyword cmakeMacroEndingError     ENDFOREACH ENDWHILE ENDFUNCTION ENDIF contained
+  " syn keyword cmakeFunctionEndingError  ENDFOREACH ENDWHILE ENDMACRO ENDIF contained
+  " syn keyword cmakeIfEndingError        ENDFOREACH ENDWHILE ENDFUNCTION ENDMACRO contained
+  " syn keyword cmakeWhileEndingError     ENDFOREACH ENDMACRO ENDFUNCTION ENDIF contained
+  " syn keyword cmakeForeachEndingError   ENDWHILE ENDMACRO ENDFUNCTION ENDIF contained
+
+  " This is necessary so I can write TOP + others, instead of TOP - others.  The
+  " latter is what happens when you specify groups after TOP.
+  syn cluster cmakeEverythingButMacros contains=TOP,cmakeMacroCheckRegion,cmakeFuncCheckRegion
+
+  " Here is one try:
+  "
+  " syn region cmakeForeachCheckRegion transparent keepend
+  "       \ start='foreach' end='endforeach' 
+  "       \ matchgroup=cmakeEndingError
+  "       \   end='endmacro' end='endwhile' end='endif' end='endfunction'
+  "       \ contains=@cmakeEverythingButMacros
+  " syn region cmakeIfCheckRegion transparent keepend
+  "       \ start='if' skip='\(else\)|\(elseif\)' end='endif' 
+  "       \ matchgroup=cmakeEndingError
+  "       \   end='endmacro' end='endwhile' end='endforeach' end='endfunction'
+  "       \ contains=@cmakeEverythingButMacros
+  " syn region cmakeWhileCheckRegion transparent keepend
+  "       \ start='while' end='endwhile'
+  "       \ matchgroup=cmakeEndingError
+  "       \   end='endmacro' end='endforeach' end='endif' end='endfunction'
+  "       \ contains=@cmakeEverythingButMacros
+
+  " This method doesn't work either:
+  "
+  " syn region cmakeIfCheckRegion transparent
+  "       \ start='if' skip='\(else\)|\(elseif\)' end='endif' 
+  "       \ contains=@cmakeEverythingButMacros,cmakeIfEndingError
+  " syn region cmakeForeachCheckRegion transparent
+  "       \ start='foreach' end='endforeach' 
+  "       \ contains=@cmakeEverythingButMacros,cmakeForeachEndingError
+  " syn region cmakeWhileCheckRegion transparent
+  "       \ start='while' end='endwhile'
+  "       \ contains=@cmakeEverythingButMacros,cmakeWhileEndingError
+  syn case match
+else
+  syn case ignore
+  syn region cmakeFuncFoldRegion  transparent fold start='function' end='endfunction'
+  syn region cmakeMacroFoldRegion transparent fold start='macro'    end='endmacro'
+  syn case match
+end
 
 """"""""""""""""""""""""""""""""""
 " Optional trailing space errors "
@@ -244,6 +296,15 @@ hi def link cmakeRepeat           Repeat
 
 hi def link cmakeConstant         Constant
 hi def link cmakeOperator         Operator
+
+if exists('cmake_ending_errors')
+  hi def link cmakeMacroEndingError     cmakeEndingError
+  hi def link cmakeFunctionEndingError  cmakeEndingError
+  hi def link cmakeIfEndingError        cmakeEndingError
+  hi def link cmakeWhileEndingErrors    cmakeEndingError
+  hi def link cmakeForeachEndingErrors  cmakeEndingError
+  hi def link cmakeEndingError          cmakeError
+endif
 
 if exists('cmake_extra_predefs')
   hi def link cmakeMessageFunctionArg cmakeFunctionArg
