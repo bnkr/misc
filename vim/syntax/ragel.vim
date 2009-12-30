@@ -47,9 +47,13 @@ fun! RagelLoadLangSyntax(language_file)
 endfun
 
 " Will this work for local files?
-runtime! syntax/cpp.vim
+"
+" FIXME: is bruken.  Screws everything up.
+" runtime! syntax/cpp.vim
 
 call RagelLoadLangSyntax('cpp.vim')
+
+syn keyword rlTodo TODO FIXME XXX
 
 " Identifiers
 syntax match rlIdentifier "[a-zA-Z_][a-zA-Z_0-9]*" contained
@@ -69,7 +73,7 @@ syntax region rlMachineSpec2 matchgroup=rlBegin start="%%$" end="$" keepend cont
 "   this gets matched as a comment on the second line of a preproc directive at
 "   the start of the file (i.e. not in the state machine), as in #define.
 "   WTF?!?!?!
-syntax match rlComment "#.*$" contained
+syntax match rlComment "#.*$" contained contains=rlTodo,@Spell
 
 " Literals
 syntax match rlLiteral "'\(\\.\|[^'\\]\)*'[i]*"    contained
@@ -91,7 +95,7 @@ syntax match rlAugmentOps "<>[!\^/*~]"       contained
 syntax match rlAugmentOps "=>"               contained
 syntax match rlOtherOps   "->"               contained
 
-" TODO: these never get matched.
+" TODO: these never get matched.  WTF!?!?!?!!?
 syntax match rlOtherOps   "<:"  contained
 syntax match rlOtherOps   ":>"  contained
 syntax match rlOtherOps   ":>>" contained
@@ -142,6 +146,7 @@ syntax sync match ragelSyncPat grouphere NONE "^[^\'\"]*}%%"
 "
 
 hi link rlComment Comment
+hi link rlTodo Todo
 hi link rlNumber Number
 hi link rlLiteral String
 hi link rlAugmentOps Keyword

@@ -89,7 +89,7 @@ syn match lemonBlockDirective '%token_type'
 syn match lemonBlockDirective '%extra_argument'
 
 " Really simple keywords
-syn keyword lemonPredefined   error
+syn keyword lemonPredefined   error contained
 syn match   lemonEquals       /::=/ contained
 " Contained means they need to be "activated" with the contains= argument to
 " some region (in this case it will be a comment).
@@ -123,12 +123,14 @@ syn match lemonRuleNameDef  /[a-z][A-Za-z0-9_]*/ contained
 " Alias for shorter contains=
 syn cluster lemonComments contains=lemonLongComment,lemonShortComment
 
+syn match lemonRuleVar /(\(\s\|\n\)*[a-zA-Z][a-zA-Z_0-9]\+\(\s\|\n\)*)/ contained
+
 " Find rule definitions and put the context-sensitive placement error and rule
 " name def.  Transparent= don't colour it -- inherit color from whatever it's
 " in.  me=e-3 removes the equals which we need in otder to math the ruleEnd
 " group.
-syn match lemonRuleStart  /\<[a-z][A-Za-z0-9_]*\(\s\|\n\)*::=/me=e-3 transparent 
-      \ contains=lemonTokenPlacementError,lemonRuleNameDef,@lemonComments
+syn match lemonRuleStart  /\<[a-z][A-Za-z0-9_]*\(\(\s\|\n\)*([a-zA-Z][a-zA-Z_0-9]\+)\)\?\(\s\|\n\)*::=/me=e-3 transparent 
+      \ contains=lemonTokenPlacementError,lemonRuleNameDef,lemonRuleVar,@lemonComments
 
 syn match lemonRuleMissingPeriodError     /{/ contained
 
@@ -138,7 +140,7 @@ syn region lemonRuleEnd transparent keepend
       \ matchgroup=lemonEquals start='::='
       \ matchgroup=NONE end='\.'
       \ contains=lemonRuleMissingPeriodError,lemonTokenName,lemonRuleName,lemonRuleName,
-      \   lemonTokenName,lemonEqualsPlacementError
+      \   lemonTokenName,lemonEqualsPlacementError,lemonPredefined
 
 " Used only in the multi-line directive regions.  Note: a side-effect of this is
 " that the missing period error and the placement errors combine to match the
@@ -223,6 +225,7 @@ hi def link lemonRuleName      Constant
 hi def link lemonRuleNameDef   Structure
 hi def link lemonEquals        Operator
 hi def link lemonPredefined    Keyword
+hi def link lemonRuleVar       Special
 
 let b:current_syntax = 'lemon'
 
