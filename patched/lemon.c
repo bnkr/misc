@@ -3260,6 +3260,7 @@ PRIVATE void translate_code(struct lemon *lemp, struct rule *rp){
   int i;
   char lhsused = 0;    /* True if the LHS element has been used */
   char used[MAXRHS];   /* True for each RHS element which is used */
+  Boolean in_string = LEMON_FALSE;
 
   for(i=0; i<rp->nrhs; i++) used[i] = 0;
   lhsused = 0;
@@ -3270,8 +3271,13 @@ PRIVATE void translate_code(struct lemon *lemp, struct rule *rp){
   }
 
   append_str(0,0,0,0);
+
   for(cp=rp->code; *cp; cp++){
-    if( isalpha(*cp) && (cp==rp->code || (!isalnum(cp[-1]) && cp[-1]!='_')) ){
+    if ( *cp == '"' && (cp == rp->code || cp[-1] != '\\') ) {
+      in_string = ! in_string;
+    }
+
+    if( isalpha(*cp) && (cp==rp->code || (!isalnum(cp[-1]) && cp[-1]!='_')) && !in_string ){
       char saved;
       for(xp= &cp[1]; isalnum(*xp) || *xp=='_'; xp++);
       saved = *xp;
