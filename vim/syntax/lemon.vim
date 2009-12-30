@@ -43,21 +43,6 @@ endif
 let s:cpo_save = &cpo
 set cpo-=C
 
-" TODO:
-"   Attempting to match a missing period at the end of rule.  Wants:
-"
-"   - an identifier followed by any kind of whitespace follwoed by a curly-brace
-"   - unless the code is after a token directive
-"   - don't stop code from being matched (at all).
-"
-"   The answer might be to explicitly implement all of the code-taking 
-"   directives, then set any occurance of ". {" as an error, then add the code
-"   block which I'll need some special method to make sure it onlymatches with
-"   rule defs.
-"
-"   Thisis probably a good idea anyway.  Then we can just set errors as
-"   "everything not matched", which would catch things like jumk characters.
-
 " Load a sub-syntax into the lemonSubLanguage group.
 fun! LemonLoadSubSyntax(language_file)
   " Otherwise the file will not define anything.
