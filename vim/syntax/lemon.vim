@@ -29,7 +29,7 @@
 " - can't recognise when code has been given to a directive which doesn't need
 "   it.
 " - doesn't match a lone lower-case as an error, including rules which look like
-"   x y ::= z.
+"   x y ::= z (but the highlighting looks weird).
 "
 " Language:    Lemon
 " Maintainer:  James Webber <bunkerprivate@googlemail.com>
@@ -116,10 +116,9 @@ syn keyword lemonTodo contained TODO XXX FIXME NOTE
 " TODO: 
 "   the changes I made to regions etc. makes this not work.  I need to
 "   have it as contained, I think.
-syn match  lemonError /;/
-" Leading underscores are never allowed.  TODO: that \s should be a word
-" boundary but I can't remember how vim does thoes.
-syn match  lemonError /\s_\+/ms=s+1
+syn match  lemonError /[;.]/
+" Leading underscores are never allowed.
+syn match  lemonError /\<_\+/ms=s+1
 syn match  lemonError /^_\+/
 
 " We'll use this as a sub-match for places which don't allow upper-case words
@@ -143,20 +142,18 @@ syn cluster lemonComments contains=lemonLongComment,lemonShortComment
 " name def.  Transparent= don't colour it -- inherit color from whatever it's
 " in.  me=e-3 removes the equals which we need in otder to math the ruleEnd
 " group.
-"
-" TODO:
-"   This is breaking the global matches (e.g. to stop a lone semiclon).   I
-"   guess it's just an over-enthusiastic.  Because it matches so much, it also
-"   means that we can't match lone rule names or multiple identifiers.
-syn match lemonRuleStart  /^\([^:]\|[\n]\)\+::=/me=e-3 transparent 
+syn match lemonRuleStart  /\<[a-z][A-Za-z0-9_]*\(\s\|\n\)*::=/me=e-3 transparent 
       \ contains=lemonTokenPlacementError,lemonRuleNameDef,@lemonComments
 
 syn match lemonRuleMissingPeriodError     /{/ contained
 
+syn match lemonEqualsPlacementError /::=/ contained
+
 syn region lemonRuleEnd transparent keepend
       \ matchgroup=lemonEquals start='::='
       \ matchgroup=NONE end='\.'
-      \ contains=lemonRuleMissingPeriodError,lemonTokenName,lemonRuleName,lemonRuleName,lemonTokenName
+      \ contains=lemonRuleMissingPeriodError,lemonTokenName,lemonRuleName,lemonRuleName,
+      \   lemonTokenName,lemonEqualsPlacementError
 
 " Used only in the multi-line directive regions.  Note: a side-effect of this is
 " that the missing period error and the placement errors combine to match the
@@ -218,6 +215,7 @@ hi def link lemonBasicDirective    lemonDirective
 hi def link lemonShortComment      lemonComment
 hi def link lemonLongComment       lemonComment
 
+hi def link lemonEqualsPlacementError lemonError
 hi def link lemonNonExistDirective    lemonError
 hi def link lemonSpaceError           lemonError
 hi def link lemonTokenPlacementError  lemonError
