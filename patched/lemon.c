@@ -3066,7 +3066,7 @@ int *lineno;
 PRIVATE FILE *tplt_open(lemp)
 struct lemon *lemp;
 {
-  static char templatename[] = "/usr/share/lemon/lempar.c";
+  static char templatename[] = "/home/bunker/src/scripting/patched/lempar.c";
   char buf[1000];
   FILE *in;
   char *tpltname;
