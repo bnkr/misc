@@ -146,7 +146,7 @@ syn cluster cmakeParenCode
 syn match cmakeParenError /.(/ms=s+1 contained
 
 " The basic function parameters.
-syn region cmakeParenRegion start='(' end=')' contains=@cmakeParenCode,cmakeParenError,cmakeCharError
+syn region cmakeParenRegion start='(' end=')' contains=@cmakeParenCode,cmakeParenError
 
 syn case ignore
 " This is just matching the first line of an if, not the entire thing.
