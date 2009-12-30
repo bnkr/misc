@@ -120,7 +120,7 @@ syn match lemonRuleNameDef  /[a-z][A-Za-z0-9_]*/ contained
 syn cluster lemonComments contains=lemonLongComment,lemonShortComment
 
 " For "rule(varname) ::= ..."
-syn match lemonRuleVar /[a-zA-Z][a-zA-Z_0-9]\+/ contained
+syn match lemonRuleVar /[a-zA-Z][a-zA-Z_0-9]*/ contained
 syn match lemonRuleVarMatch /(\([^)]\|\n\)*)/ contained
       \ contains=lemonRuleVar
 
@@ -139,7 +139,7 @@ syn region lemonRuleEnd transparent keepend
       \ matchgroup=lemonEquals start='::='
       \ matchgroup=NONE end='\.'
       \ contains=lemonRuleMissingPeriodError,lemonTokenName,lemonRuleName,lemonRuleName,
-      \   lemonTokenName,lemonEqualsPlacementError,lemonPredefined
+      \   lemonTokenName,lemonEqualsPlacementError,lemonPredefined,lemonRuleVarMatch
 
 " Used only in the multi-line directive regions.  Note: a side-effect of this is
 " that the missing period error and the placement errors combine to match the

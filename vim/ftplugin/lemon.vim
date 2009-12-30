@@ -12,10 +12,6 @@ if exists("b:did_ftplugin")
 endif
 let b:did_ftplugin = 1
 
-" Using line continuation here.
-let s:cpo_save = &cpo
-set cpo-=C
-
 let b:undo_ftplugin = "setl fo< com< ofu< "
 
 " Set 'formatoptions' to break comment lines but not other lines,
@@ -30,6 +26,3 @@ setlocal comments=sO:*\ -,mO:*\ \ ,exO:*/,s1:/*,mb:*,ex:*/,://
 " braces in comments.
 let b:match_words = &matchpairs
 let b:match_skip = 's:comment\|string\|character'
-
-let &cpo = s:cpo_save
-unlet s:cpo_save
