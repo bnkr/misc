@@ -97,10 +97,6 @@ syn keyword lemonTodo contained TODO XXX FIXME NOTE
 
 " Moan if you put a lone semi-colon anywhere.  This works because the C code
 " part is a region whih overrides this.
-"
-" TODO: 
-"   the changes I made to regions etc. makes this not work.  I need to
-"   have it as contained, I think.
 syn match  lemonError /[;.]/
 " Leading underscores are never allowed.
 syn match  lemonError /\<_\+/ms=s+1
@@ -123,14 +119,17 @@ syn match lemonRuleNameDef  /[a-z][A-Za-z0-9_]*/ contained
 " Alias for shorter contains=
 syn cluster lemonComments contains=lemonLongComment,lemonShortComment
 
-syn match lemonRuleVar /(\(\s\|\n\)*[a-zA-Z][a-zA-Z_0-9]\+\(\s\|\n\)*)/ contained
+" For "rule(varname) ::= ..."
+syn match lemonRuleVar /[a-zA-Z][a-zA-Z_0-9]\+/ contained
+syn match lemonRuleVarMatch /(\([^)]\|\n\)*)/ contained
+      \ contains=lemonRuleVar
 
 " Find rule definitions and put the context-sensitive placement error and rule
 " name def.  Transparent= don't colour it -- inherit color from whatever it's
 " in.  me=e-3 removes the equals which we need in otder to math the ruleEnd
 " group.
-syn match lemonRuleStart  /\<[a-z][A-Za-z0-9_]*\(\(\s\|\n\)*([a-zA-Z][a-zA-Z_0-9]\+)\)\?\(\s\|\n\)*::=/me=e-3 transparent 
-      \ contains=lemonTokenPlacementError,lemonRuleNameDef,lemonRuleVar,@lemonComments
+syn match lemonRuleStart  /\<[a-z][A-Za-z0-9_]*\(\(\s\|\n\)*(\([^)]\|\n\)*)\)\?\(\s\|\n\)*::=/me=e-3 transparent 
+      \ contains=lemonTokenPlacementError,lemonRuleNameDef,lemonRuleVarMatch,@lemonComments
 
 syn match lemonRuleMissingPeriodError     /{/ contained
 
@@ -156,6 +155,9 @@ syn region lemonTokDirectiveRegion transparent keepend
       \ matchgroup=NONE end='\.'
       \ contains=lemonRulePlacementError,lemonTokenName,@lemonComments,
       \          lemonDirectiveMissingPeriodError
+
+syn match lemonPrecedenceDecl /\[[^\]]\+\]/
+      \ contains=lemonRulePlacementError,lemonTokenName
 
 if exists("lemon_space_errors")
   if ! exists("lemon_no_trail_space_error")
@@ -219,13 +221,14 @@ hi def link lemonError     Error
 hi def link lemonComment   Comment
 
 " Stuff which is already generic enough.  Some artistic license here, I guess ;).
-hi def link lemonTodo          Todo
-hi def link lemonTokenName     Define
-hi def link lemonRuleName      Constant
-hi def link lemonRuleNameDef   Structure
-hi def link lemonEquals        Operator
-hi def link lemonPredefined    Keyword
-hi def link lemonRuleVar       Special
+hi def link lemonTodo           Todo
+hi def link lemonTokenName      Define
+hi def link lemonRuleName       Constant
+hi def link lemonRuleNameDef    Structure
+hi def link lemonEquals         Operator
+hi def link lemonPredefined     Keyword
+hi def link lemonRuleVar        Special
+hi def link lemonPrecedenceDecl Operator
 
 let b:current_syntax = 'lemon'
 
