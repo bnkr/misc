@@ -6,20 +6,21 @@
 require_once("blib/debug.php");
 require_once("blib/files.php");
 
+$DETAILED = false;
 $hashes = array();
 $dupfound = 0;
 $files_scanned = 0;
 
 function get_hashes($dir) {
-  GLOBAL $hashes, $dupfound, $files_scanned;
-  
+  GLOBAL $hashes, $dupfound, $files_scanned, $duplicated;
+
   if (substr($dir, -1) != "/") $dir .= "/";
-  
+
   $files = get_file_list($dir, GET_FILE_LIST_FILES);
   if ($files !== NULL) {
     $files_in_this_dir = 0;
     $matches = 0;
-    
+
     foreach ($files as $f) {
       $path = $dir . $f;
       $hash = md5_file($path);
@@ -28,13 +29,13 @@ function get_hashes($dir) {
       if (isset($hashes[$hash])) {
         ++$dupfound;
         ++$matches;
-        echo $path . " is a duplicate of " . $hashes[$hash] . "\n";
+        $hashes[$hash][] = $path;
       }
       else {
-        $hashes[$hash] = $path;
+        $hashes[$hash] = array($path);
       }
     }
-    
+
     // skip dirs with nothing in it
     if ($matches != 0) {
       if ($matches != $files_in_this_dir) {
@@ -49,10 +50,19 @@ function get_hashes($dir) {
     echo "Error opening $dir.\n";
   }
 }
-  
+
+
+for ($i = 1; $i < $argc; ++$i) {
+  if ($argv[$i] == "-d") {
+    $DETAILED = true;
+    $argv[$i] = null;
+  }
+}
+
 if ($argc > 1) {
   for ($i = 1; $i < $argc; ++$i) {
-//     dbg($argv[$i]);
+    if ($argv[$i] == null) continue;
+
     get_hashes($argv[$i]);
   }
 }
@@ -61,3 +71,12 @@ else {
 }
 
 echo $dupfound . " duplicates found of " . $files_scanned . " files scanned.\n";
+
+if ($DETAILED) {
+  echo "Details:\n";
+
+  foreach ($hashes as $fs) {
+    echo "- ";
+    echo implode("\n  ", $fs) . "\n";
+  }
+}
