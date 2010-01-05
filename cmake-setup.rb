@@ -152,7 +152,7 @@ while i < ARGV.length
       Kernel.exit(1)
     end
     create_windows = true
-  elsif a == '-d'
+  elsif a == '-D'
     i += 1
     v = ARGV[i]
     if (v && v =~ /[a-zA-Z_][a-zA-Z0-9_]*=.*/)
@@ -165,7 +165,9 @@ while i < ARGV.length
     clean = true
   elsif a == '-H'
     create_in_pwd = true
-  elsif a != "-h"
+  elsif a[0].chr == "-" && a != "-h"
+    fail "unrecognised option argument #{a}"
+  else
     non_args << a
   end
   i += 1
@@ -204,7 +206,7 @@ if non_args.length == 0
 elsif non_args.length == 1
   srcdir = Pathname.new(non_args[0])
 else
-  STDERR.puts "cmake-setup.rb: error: need source directory, or the standard symlink."
+  STDERR.puts "cmake-setup.rb: error: wrong number of arguments.  Need srcdir link an no args, or a source dir arg"
   Kernel.exit 1
 end
 
