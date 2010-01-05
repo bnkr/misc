@@ -192,10 +192,9 @@ else
   call LemonLoadSubSyntax('cpp.vim')
 endif
 
-" Keepend is needed to stop the sub-language consuming the curly brace and
-" causing the entire file from the first {}-block to be highlighted as the
-" sublang.
-syn region lemonCode start="{" end="}" fold keepend contains=@lemonSubLanguage
+" OK, aparently you need to set a matchgroup or the region will end at the first
+" close-curly bracket.  What the fuck, vim.  What the fuck.
+syn region lemonCodeRegion matchgroup=Operator start="{" end="}" transparent contains=@lemonSubLanguage
 
 " Default highlight groups: link specialised groups to generic ones.
 hi def link lemonTokDirective      lemonDirective
