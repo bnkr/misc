@@ -103,6 +103,10 @@ syn region lexPreludeComment fold keepend contained
 "   Somehow catch errors with indeitnation.  Perhaps just ^\s+^\s ?
 "
 " TODO:
+"   Comments aren't highlighted.  Has implications on indent errors, because
+"   comments in the left-most columns aren't right.
+"
+" TODO:
 "   Operators of various kinds are not matched.
 "
 " TODO:

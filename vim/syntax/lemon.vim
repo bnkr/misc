@@ -73,6 +73,9 @@ syn match lemonBasicDirective '%name'
 syn match lemonBasicDirective '%stack_size' 
 syn match lemonBasicDirective '%token_prefix'
 syn match lemonBasicDirective '%start_symbol' 
+" These aren't documented, but they do work.
+syn match lemonBasicDirective '%ifdef' 
+syn match lemonBasicDirective '%endif' 
 
 " Directives which take code.
 syn match lemonBlockDirective '%include'
