@@ -61,7 +61,7 @@ syn region cmakeSubstitution start='\${' end='}' oneline contains=cmakeSubstitut
 " sub-match is used to avoid highlighting the (possible) whitespace, which
 " would look naff if the match has a special background.
 syn match cmakeUserFunctionCall /[a-zA-Z0-9_]\+/ contained
-syn match cmakeFunctionCallMatch /[a-zA-Z0-9_]\+\(\s\|\n\)*(/me=e-1 contains=cmakePredefFunction,cmakeUserFunctionCall
+syn match cmakeFunctionCallMatch /[a-zA-Z0-9_]\+\(\s\|\n\)*(/me=e-1 contains=cmakeStatementFunction,cmakePredefFunction,cmakeUserFunctionCall
 
 " An uncontained match for bad characters; i.e. those which aren't allowed
 " outside paren'ed code.
@@ -105,6 +105,10 @@ syn keyword cmakePredefFunction contained
       \ SET_TESTS_PROPERTIES SITE_NAME SOURCE_GROUP STRING SUBDIR_DEPENDS SUBDIRS TARGET_LINK_LIBRARIES 
       \ TRY_COMPILE TRY_RUN UNSET USE_MANGLED_MESA UTILITY_SOURCE VARIABLE_REQUIRES VTK_MAKE_INSTANTIATOR 
       \ VTK_WRAP_JAVA VTK_WRAP_PYTHON VTK_WRAP_TCL WRITE_FILE GET_PROPERTY SET_PROPERTY
+
+" I consider break() to be special, and should get operator colours.
+syn keyword cmakeStatementFunction contained
+      \ BREAK
 
 syn keyword cmakeRepeat
       \ FOREACH ENDFOREACH WHILE ENDWHILE
@@ -307,8 +311,9 @@ hi def link cmakeUserFunctionCall Identifier
 hi def link cmakeConditional      Conditional
 hi def link cmakeRepeat           Repeat
 
-hi def link cmakeConstant         Constant
-hi def link cmakeOperator         Operator
+hi def link cmakeConstant          Constant
+hi def link cmakeOperator          Operator
+hi def link cmakeStatementFunction Operator
 
 if exists('cmake_ending_errors')
   hi def link cmakeMacroEndingError     cmakeEndingError
