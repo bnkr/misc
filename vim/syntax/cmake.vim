@@ -106,9 +106,9 @@ syn keyword cmakePredefFunction contained
       \ TRY_COMPILE TRY_RUN UNSET USE_MANGLED_MESA UTILITY_SOURCE VARIABLE_REQUIRES VTK_MAKE_INSTANTIATOR 
       \ VTK_WRAP_JAVA VTK_WRAP_PYTHON VTK_WRAP_TCL WRITE_FILE GET_PROPERTY SET_PROPERTY
 
-" I consider break() to be special, and should get operator colours.
+" I consider break() etc. to be special, and should get operator colours.
 syn keyword cmakeStatementFunction contained
-      \ BREAK
+      \ BREAK RETURN 
 
 syn keyword cmakeRepeat
       \ FOREACH ENDFOREACH WHILE ENDWHILE
