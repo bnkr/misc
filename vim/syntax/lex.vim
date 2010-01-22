@@ -15,12 +15,6 @@ endif
 let s:cpo_save = &cpo
 set cpo-=C
 
-" We'd better sync with a long amount because those preludes can get pretty
-" hefty :)
-"
-" TODO:
-"   Doesn't seem to work.
-
 """"""""""""""""""""""""""
 " Loading the Sub-Syntax "
 """"""""""""""""""""""""""
