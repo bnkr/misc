@@ -118,22 +118,27 @@ syn region lexPreludeComment fold keepend contained
 " TODO:
 "   End-of-rules delimiter is not highlighted.
 
-
 " Must go first so at least the regexp var can override it.
-syn region lexActionRegion matchgroup=Operator start='{' end='}' contained contains=@lexSubLanguage
+syn region lexActionRegion matchgroup=lexActionDelimeter start='{' end='}' contained contains=@lexSubLanguage
 
 syn region lexMatchString start='[^\\]"'ms=s+1 start='^"' end='"' skip='\\"' oneline contained
+syn match lexMatchCancelled /\\[a-z".\-]/ contained
 syn region lexMatchCharClass start='[^\\]\['ms=s+1 start='^\[' end='\]' skip='\\\]' oneline contained
 syn match lexMatchExprVar /{[a-zA-Z_][a-zA-Z0-9]\+}/ contained
+syn cluster lexMatchRegionCluster contains=lexMatchString,lexMatchExprVar,lexMatchCharClass,lexMatchCancelled,lexStateRegionComment
 
-syn cluster lexMatchRegionCluster contains=lexMatchString,lexMatchExprVar,lexMatchCharClass
+syn region lexMatchRegion contained contains=@lexMatchRegionCluster
+      \ start='^' end='{'me=e-1 end=';' end='$' 
 
 " Any non-ws at the start of the line.
-syn region lexMatchRegion contained contains=@lexMatchRegionCluster
-      \ start='^[^ \t]'me=e-1 end='{'me=e-1 end=';' end='$' 
+"
+"   Note: this actually only applies when you *don't* use the state region
+"   features.
+" syn region lexMatchRegion contained contains=@lexMatchRegionCluster
+"       \ start='^[^ \t]'me=e-1 end='{'me=e-1 end=';' end='$' 
 
 " ^<a,b,c,*>{ ... }
-syn cluster lexStateRegionCluster contains=lexMatchRegion,lexActionRegion
+syn cluster lexStateRegionCluster contains=lexMatchRegion,lexActionRegion,lexStateRegionComment
 syn region lexStateRegion matchgroup=lexStateGroupDelim start="^<[^>]\+>{" end="}" contained contains=@lexStateRegionCluster 
 
 " The %% is pretty dodgy because it conflicts with the end of rules and start of
@@ -141,23 +146,38 @@ syn region lexStateRegion matchgroup=lexStateGroupDelim start="^<[^>]\+>{" end="
 syn cluster lexRulesCluster contains=lexStateRegion
 syn region lexRulesRegion matchgroup=lexRulesDelim start='^\s*%%' end='\%$' contains=@lexRulesCluster,@lexSubLanguage
 
+syn region lexStateRegionComment fold keepend contained
+      \ matchgroup=lexStateRegionComment start='/\*'
+      \ end='\*/'
+      \ contains=@lexCommentCluster
+
+
 """"""""""""""""""""""""
 " Default Highlighting "
 """"""""""""""""""""""""
 
-hi def link lexPreludeCodeDelim Delimiter
-hi def link lexStateGroupDelim  Delimiter
-hi def link lexRulesDelim       Delimiter
+hi def link lexActionDelimeter  lexDelimiter
+hi def link lexPreludeCodeDelim lexDelimiter
+hi def link lexStateGroupDelim  lexDelimiter
+hi def link lexRulesDelim       lexDelimiter
+hi def link lexDelimiter        Delimiter
+
+hi def link lexStateRegionComment lexComment
+hi def link lexPreludeComment     lexComment
+hi def link lexComment           Comment
+
 hi def link lexDirective        Operator
 hi def link lexTodo             Todo
 hi def link lexLongCommentError Error
-hi def link lexPreludeComment   Comment
 hi def link lexRegexReference   Define
 hi def link lexRegexVar         Identifier
 hi def link lexRegexOp          Special
+
 hi def link lexMatchString      String
 hi def link lexMatchExprVar     Define
 hi def link lexMatchCharClass   Special
+hi def link lexMatchCancelled   Special
+
 
 " <c.vim> includes several ALLBUTs; these have to be treated so as to exclude lex* groups
 " syn cluster cParenGroup   add=lex.*
