@@ -82,6 +82,7 @@ syn keyword cmakeOperator contained
       \ STREQUAL STRGREATER STRLESS MATCHES
       \ EQUAL GREATER LESS
       \ VERSION_LESS VERSION_GREATER VERSION_EQUAL
+      \ TARGET
 
 " Cmake's intrinsic functions.  This is contained in the user-function calls.
 " It might later be overridden by special regions for a particular cmake
