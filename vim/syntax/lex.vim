@@ -94,11 +94,8 @@ syn region lexPreludeComment fold keepend contained
 """"""""""""""
 
 " TODO:
-"   Somehow catch errors with indeitnation.  Perhaps just ^\s+^\s ?
-"
-" TODO:
-"   Comments aren't highlighted.  Has implications on indent errors, because
-"   comments in the left-most columns aren't right.
+"   Somehow catch errors with indeitnation.  Perhaps just ^\s+^\s ?  It actually
+"   only applies when you don't use the state region thing.
 "
 " TODO:
 "   Operators of various kinds are not matched.
@@ -118,17 +115,21 @@ syn region lexPreludeComment fold keepend contained
 " TODO:
 "   End-of-rules delimiter is not highlighted.
 
-" Must go first so at least the regexp var can override it.
 syn region lexActionRegion matchgroup=lexActionDelimeter start='{' end='}' contained contains=@lexSubLanguage
 
 syn region lexMatchString start='[^\\]"'ms=s+1 start='^"' end='"' skip='\\"' oneline contained
 syn match lexMatchCancelled /\\[a-z".\-]/ contained
 syn region lexMatchCharClass start='[^\\]\['ms=s+1 start='^\[' end='\]' skip='\\\]' oneline contained
-syn match lexMatchExprVar /{[a-zA-Z_][a-zA-Z0-9]\+}/ contained
+
+syn match lexMatchExprVar /{[a-zA-Z_][a-zA-Z0-9_]\+}/ contained
 syn cluster lexMatchRegionCluster contains=lexMatchString,lexMatchExprVar,lexMatchCharClass,lexMatchCancelled,lexStateRegionComment
 
-syn region lexMatchRegion contained contains=@lexMatchRegionCluster
-      \ start='^' end='{'me=e-1 end=';' end='$' 
+" TODO: 
+"   This only works properly if the matches are not indented.  It is too eager
+"   to match the '{' end.  I want the lexMatchExprVar to consume that.  Fucking
+"   vim bullshit.
+syn region lexMatchRegion contained contains=@lexMatchRegionCluster transparent
+      \ start='^' start='^\s\+' end='{'me=e-1 end=';' end='$' 
 
 " Any non-ws at the start of the line.
 "
