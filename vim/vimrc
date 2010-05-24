@@ -14,6 +14,7 @@ au BufRead,BufNewFile *.xxs,*.xh setfiletype xxs
 au BufRead,BufNewFile TODO*      setfiletype asciidoc
 au BufRead,BufNewFile *.txt      setfiletype asciidoc
 au BufRead,BufNewFile *.lemon    setfiletype lemon
+au BufRead,BufNewFile *.mad    setfiletype mad
 au BufRead,BufNewFile GRAND-PLAN setfiletype asciidoc
 au BufRead,BufNewFile EVIL-PLAN  setfiletype text
 au BufRead,BufNewFile CREDITS,THANKS    setfiletype asciidoc
@@ -22,6 +23,7 @@ au BufRead,BufNewFile README*    setfiletype asciidoc
 au BufRead,BufNewFile ChangeLog  setfiletype asciidoc
 au BufRead,BufNewFile INSTALL*   setfiletype asciidoc
 au BufRead,BufNewFile CMakeLists.txt setfiletype cmake
+" au BufRead,BufNewFile test.txt   setfiletype asciidoc-new
 
 " Semicolon means traverse the parent trees to find tags.
 set tags=tags;
@@ -176,6 +178,8 @@ let g:EnhCommentifyCallbackExists = 'Yes'
 
 " Set up for auto-wrapping with formatoptions.
 set textwidth=80
+" FIXME: fucks sake... this is being set for everything!!
+autocmd FileType xml,tex,docbk setlocal textwidth=120
 
 " c = auto-wrap comments using textwidth.
 " r = auto-insert the comment char(s) when you press enter after a comment.
@@ -190,6 +194,8 @@ autocmd FileType text,tex,latex set formatoptions=crqn
 
 " This is for shell, so double brackets don't show up as errors.
 let g:is_posix=1
+" Load doxygen syntax where possible.
+let g:load_doxygen_syntax=1
 
 " Turn on spell checking if we're in a text file.  Use "ctrl+x s" in insert mode
 " to get a list of suggestions.  Or :set mousemodel=popup for a popup suggestion
@@ -197,12 +203,27 @@ let g:is_posix=1
 autocmd FileType text  set spelllang=en_gb
 autocmd FileType text  set spell
 
+
 " TODO: get rid of comments when joining lines.
 " http://vim.wikia.com/wiki/Remap_join_to_merge_comment_lines
 
 " Remove trailing whitespace from files that shouldn't have them
 " Complicated formulation to avoid writing over the substitution
 " history.
-autocmd FileType xxs,c,cpp,java,php,ruby,cmake,latex,lemon autocmd BufWritePre <buffer> 
-\ :call setline(1,map(getline(1,"$"),'substitute(v:val,"\\s\\+$","","")'))
+autocmd FileType docbk,xxs,c,cpp,java,php,ruby,cmake,latex,lemon
+      \ autocmd BufWritePre <buffer>
+      \ :call setline(1,map(getline(1,"$"),'substitute(v:val,"\\s\\+$","","")'))
+
+" XML turns off spell checking in unless folding is on.  I have *no* idea why
+" thsi is but this line fixes it.
+let g:xml_syntax_folding=1
+
+" FIXME: 
+"   this lot doesn't work.  Maybe it needs to be in the syntax/ directory?  I
+"   have trouble working out why though...
+au FileType docbk if 'xml' == b:docbk_type
+au FileType docbk   syn cluster xmlRegionHook add=@Spell
+au FileType docbk elseif 'sgml' == b:docbk_type 
+au FileType docbk   syn cluster sgmlRegionHook add=@Spell
+au FileType docbk end
 
