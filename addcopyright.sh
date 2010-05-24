@@ -41,6 +41,9 @@ find_comment() {
     *.rb | *.cmake | */CMakeLists.txt | *.sh)
       COMMENT="#"
       ;;
+    *.tex | *.latex)
+      COMMENT="%"
+      ;;
     *)
       echo "warning: guessing comment caracter is '#'" 1>&2
       COMMENT="#"
