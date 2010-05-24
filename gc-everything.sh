@@ -15,16 +15,28 @@ gc_repos() {
   fi
 }
 
-cd "/home/bunker/src" || fail "couldn't cd to source dir"
+gc_directory() {
+  dir=$1
+  oldpwd=`pwd`
+  cd $dir || fail "couldn't cd to repos containing dir"
+  for f in *; do
+    gc_repos $f
 
-for f in *; do
-  gc_repos $f
+    if test ! -d "$repos/.git"; then
+      continue
+    fi
 
-  if test ! -d "$repos/.git"; then
-    continue
-  fi
+    for subdir in $f/*; do
+      gc_repos $subdir
 
-  for subdir in $f/*; do
-    gc_repos $subdir
+      # This catches $dir/build-aux/bcmake
+      for subsubdir in $f/*; do
+        gc_repos $subsubdir
+      done
+    done
   done
-done
+  cd $oldpwd
+}
+
+gc_directory "/home/bunker/src"
+gc_directory "/home/bunker/writings"
