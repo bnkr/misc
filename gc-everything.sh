@@ -30,7 +30,7 @@ gc_directory() {
       gc_repos $subdir
 
       # This catches $dir/build-aux/bcmake
-      for subsubdir in $f/*; do
+      for subsubdir in $subdir/*; do
         gc_repos $subsubdir
       done
     done
