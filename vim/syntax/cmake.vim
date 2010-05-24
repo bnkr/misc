@@ -106,6 +106,7 @@ syn keyword cmakePredefFunction contained
       \ SET_TESTS_PROPERTIES SITE_NAME SOURCE_GROUP STRING SUBDIR_DEPENDS SUBDIRS TARGET_LINK_LIBRARIES 
       \ TRY_COMPILE TRY_RUN UNSET USE_MANGLED_MESA UTILITY_SOURCE VARIABLE_REQUIRES VTK_MAKE_INSTANTIATOR 
       \ VTK_WRAP_JAVA VTK_WRAP_PYTHON VTK_WRAP_TCL WRITE_FILE GET_PROPERTY SET_PROPERTY
+      \ CMAKE_POLICY
 
 " I consider break() etc. to be special, and should get operator colours.
 syn keyword cmakeStatementFunction contained
