@@ -26,7 +26,13 @@ checkhost () {
   fi
 }
 
+BROKEN_TIME=0
+
 wait_retry() {
+  if test "$BROKEN_TIME" -eq 0; then
+    BROKEN_TIME=`date +%s`
+  fi
+
   echo "Retrying..."
   sleep 3;
 }
@@ -74,7 +80,13 @@ while test $BROKEN -eq 1; do
   if test $BROKEN -eq 1; then wait_retry; continue; fi
 done
 
-echo "All working!"
+if test "$BROKEN_TIME" -gt 0; then
+  now=`date +%s`
+  diff=$(($now - $BROKEN_TIME))
+  m=$(( $diff / 60 ))
+  s=$(( $diff % 60 ))
+  echo "Down for ${m} mins and ${s} seconds."
+fi
 
 if test $DIALOG -eq 1; then
   kdialog --msgbox "The system is up again!"
