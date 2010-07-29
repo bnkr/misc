@@ -8,6 +8,7 @@
 require 'optparse'
 require 'pathname'
 require 'fcntl'
+require 'ostruct'
 
 module CtestWrapper
   ROOT_SRC_DIR = Pathname.new('/home/bunker/src')
@@ -179,25 +180,23 @@ module CtestWrapper
     def self.run_captured(command_line, environment, print_output)
       raise ArgumentError, "command to run is empty" if command_line.empty?
 
+      pipes = OpenStruct.new
       begin
-        pipes = OpenStruct.new
         pipes.exec = IO.pipe
         pipes.stdout = IO.pipe
         pipes.stderr = IO.pipe
-        ret = do_run_captured(command_line, environment, print_output, pipes)
+        ret = self.do_run_captured(command_line, environment, print_output, pipes)
       ensure
         read_end = 0
         [pipes.exec, pipes.stdout, pipes.stderr].each {|pipe|
-          pipe.each {|io|
-            io.close if ! io.closed?
-          }
+          pipe.each {|io| io.close if ! io.closed? }
         }
       end
     end
 
     private
 
-    def do_run_captured(command_line, environment, print_output, pipes)
+    def self.do_run_captured(command_line, environment, print_output, pipes)
       exec_read, exec_write = pipes.exec
       stdout_read, stdout_write = pipes.stdout
       stderr_read, stderr_write = pipes.stderr
