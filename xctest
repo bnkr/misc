@@ -1,0 +1,298 @@
+#!/usr/bin/ruby
+# Copyright (C) 2010, James Webber.
+# Distributed under a 3-clause BSD license..  See COPYING.
+#
+# Wraps CMake's ctest with a more friendly UI and recognises my standard project
+# structure.  See $0 --help
+
+require 'optparse'
+require 'pathname'
+require 'fcntl'
+
+module CtestWrapper
+  ROOT_SRC_DIR = Pathname.new('/home/bunker/src')
+  ROOT_BIN_DIR = Pathname.new('/home/bunker/var/build')
+
+  class Settings
+    # Base ~/var/bin ~/src dir.
+    attr_reader :bin_dir, :src_dir
+    # Directory under the main dirs, e.g. bin_dir + ./test/blah
+    attr_reader :bin_subdir, :src_subdir
+    # Either :bindir, ir :bin_subdir, depending on settings.
+    attr_reader :test_dir
+    attr_reader :names, :regexes
+
+    attr_reader :verbose
+    alias verbose? verbose
+
+    def initialize(args)
+      @args = args
+      @parser = make_parser
+      @names = []
+      @regexes = []
+      @verbose = false
+      @use_subdir = false
+      @configuration = 'unix'
+    end
+
+    # Parses the arguments and maybe exits.
+    def parse!
+      other = @parser.parse(@args)
+
+      find_directories
+
+      self
+    end
+
+    private
+
+    def find_directories
+      here = Pathname.new(Dir.pwd).realpath
+      src_bits = split_path(ROOT_SRC_DIR)
+      bin_bits = split_path(ROOT_BIN_DIR)
+      here_bits = split_path(here)
+
+      @src_dir = nil
+      @bin_dir = nil
+
+      # Check prefix is the same.
+      if here_bits[0..(src_bits.length-1)] == src_bits
+        project_name = here_bits[src_bits.length]
+        subdir_bits = here_bits[(src_bits.length+1)..here_bits.length]
+      elsif here_bits[0..(bin_bits.length-1)] == bin_bits
+        project_name = here_bits[bin_bits.length]
+        subdir_bits = here_bits[(bin_bits.length+1)..here_bits.length]
+      else
+        STDERR.puts "xctest: this script must be run in a source or binary dir."
+        Kernel.exit(1)
+      end
+
+      project_root_src_dir = ROOT_SRC_DIR + project_name
+      project_root_bin_dir = ROOT_BIN_DIR + project_name
+
+      fail if ! project_root_src_dir.directory?
+      fail if ! project_root_bin_dir.directory?
+
+      project_root_bin_dir += "./#{@configuration}"
+      if ! project_root_bin_dir.exist?
+        STDERR.puts "xctest: configuration directory '#{@configuration}' does not exist"
+        Kernel.exit 1
+      end
+
+      @src_dir = project_root_src_dir
+      @bin_dir = project_root_bin_dir
+
+      @src_subdir = @src_dir + File.join(subdir_bits)
+      @bin_subdir = @bin_dir + File.join(subdir_bits)
+
+      @test_dir = @use_subdir ? @bin_subdir : @bin_dir
+    end
+
+    def split_path(path)
+      bits = []
+      path.each_filename {|f| bits << f }
+      bits
+    end
+
+    def make_parser
+      op = OptionParser.new
+      op.banner += "\nRuns tests using the standard project structure."
+
+      op.on('-s', '--subdir', "Use a binary dir which mirrors the path in the srcdir when running tests.") {
+        listfile = Pathname.getwd + "./CMakeLists.txt"
+        if ! listfile.exist?
+          STDERR.puts "xctest: --subdir cannot be used when there is no CMakeLists.txt in the pwd."
+          Kernel.exit 1
+        end
+        @use_subdir = true
+      }
+
+      op.on('-r', '--regex=EXPR', "A CMake regex to run tests matching.  Can be given multiple times.") {|val|
+        @regexes << val
+      }
+
+      op.on('-c', '--config=CONFIG', "Configuration dir.  Default is 'unix'.") {|name|
+        @configuration = name
+      }
+
+      op.on('-n', '--name=NAME', "Name of test to run.  Can be given multiple times.") {|name|
+        @names << name
+      }
+
+      op.on('-v', '--verbose', "Be loud.") { @verbose = true }
+
+      op
+    end
+  end
+
+  class ForkExecError < RuntimeError
+  end
+
+  # Regarding making forks can running programs.
+  module Fork
+    # Fork a program.  Returns the [stdout, stderr, status] object.  Does not
+    # print anything.
+    def self.capture_command(*command_line)
+      Fork.run_program(command_line, {}, false)
+    end
+
+    # Run a program without capturing any output.
+    def self.command(*command_line)
+      # TODO:
+      #   This isn't so great because it the output is still captured which
+      #   means it can end up being out of order.
+      stdout, stderr, status = Fork.run_program(command_line, {}, true)
+      status
+    end
+
+    def self.run_program(command_line, environment, print_output)
+      raise ArgumentError, "command to run is empty" if command_line.empty?
+
+      exec_read, exec_write = IO.pipe
+      stdout_read, stdout_write = IO.pipe
+      stderr_read, stderr_write = IO.pipe
+
+      pid = Process.fork {
+        environment.each_pair {|var,val| ENV[var] = val.to_s }
+
+        [stdout_read, stderr_read, exec_read].each {|io| io.close }
+
+        $stdout.reopen(stdout_write)
+        $stderr.reopen(stderr_write)
+
+        exec_write.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+        begin
+          Process.exec(*command_line)
+        rescue
+          exec_write.write($!.to_s)
+        end
+      }
+
+      [stdout_write, stderr_write, exec_write].each {|io| io.close }
+
+      error = exec_read.read
+      if error.to_s != ''
+        raise ForkExecError, "#{error}"
+      end
+
+      stdout = ''
+      stderr = ''
+
+      read_some = lambda do |string,pipe|
+        out = pipe.read(1024)
+        string << out if out
+        out
+      end
+
+      while true
+        so = read_some.call(stdout, stdout_read)
+        se = read_some.call(stderr, stderr_read)
+
+        if print_output
+          STDERR.write se if se
+          STDOUT.write so if so
+        end
+
+        if se == nil && so == nil
+          break
+        end
+      end
+
+      [stdout_read, stderr_read, exec_read].each {|io| io.close }
+
+      status = Process.wait2(pid)[1]
+
+      [stdout, stderr, status]
+    end
+  end
+
+  class CommandLine
+    def initialize(args); @args = args; end
+
+    def run!
+      @settings = Settings.new(@args).parse!
+
+      in_directory(@settings.test_dir) {
+        name_args = make_name_args
+        check_tests_exist(name_args)
+        status = run_tests(name_args)
+        Kernel.exit status.exitstatus
+      }
+    end
+
+    private
+
+    def check_tests_exist(name_args)
+      cl = %w{ctest -N} + name_args
+      stdout, stderr, status = Fork.capture_command(*cl)
+
+      if ! status.exited? || ! status.success?
+        STDERR.puts "xctest: CMake failed: output '#{stderr}'."
+      end
+
+      # It doesn't print "No tests were found!!!" under -N mode.
+      if stdout =~ /^[Tt]otal\s+[Tt]ests:\s*0\s*$/
+        STDERR.puts "xctest: no tests matching parameters given"
+        Kernel.exit 1
+      end
+
+      nil
+    end
+
+    def run_tests(name_args)
+      cl = %w{ctest --output-on-failure}
+      cl << '-V' if @settings.verbose?
+      cl += name_args
+
+      # TODO:
+      #   A bit better to use the Fork module in order to get the nice error
+      #   handling with the exec, but the run_program thing messes up the order
+      #   of output because it pipes everthing.  This will actually work just as
+      #   well for now (purely because we don't pipe anything which means ruby
+      #   errors still get displayed).
+
+      puts "xctest: exec: #{cl[0]} \"#{cl[1..-1].join('" "')}\""
+      pid = Process.fork {
+        Kernel.exec(*cl)
+        Kernel.exit!(1)
+      }
+
+      pid, status = Process.wait2(pid)
+
+      status
+    end
+
+    def in_directory(d)
+      old_d = Dir.pwd
+      begin
+        Dir.chdir(d)
+        yield
+      ensure
+        Dir.chdir(old_d)
+      end
+    end
+
+    # Return [-R, names] or [].
+    def make_name_args
+      re_arg = str_arg = nil
+
+      if ! @settings.regexes.empty?
+        re_arg = "(" + @settings.regexes.join(')|(') + ")"
+      end
+
+      if ! @settings.names.empty?
+        str_arg = "^" + @settings.names.join('$|^') + "$"
+      end
+
+      if re_arg || str_arg
+        ret = ['-R', [re_arg, str_arg].compact.join('|')]
+      else
+        ret = []
+      end
+
+      ret
+    end
+  end
+end
+
+CtestWrapper::CommandLine.new(ARGV).run!
