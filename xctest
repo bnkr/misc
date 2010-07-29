@@ -141,6 +141,11 @@ module CtestWrapper
         @names << name
       }
 
+      op.on('-N', '--name-target=NAME', "Like -n, but also add the name to the targets to run..") {|name|
+        @names << name
+        @make_targets << name
+      }
+
       op.on('-v', '--verbose', "Be loud.") { @verbose = true }
 
       op
