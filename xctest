@@ -145,13 +145,34 @@ module CtestWrapper
       Fork.run_program(command_line, {}, false)
     end
 
-    # Run a program without capturing any output.
+    # Run a program without capturing any output.  Returns the status object.
     def self.command(*command_line)
-      # TODO:
-      #   This isn't so great because it the output is still captured which
-      #   means it can end up being out of order.
-      stdout, stderr, status = Fork.run_program(command_line, {}, true)
-      status
+      raise ArgumentError, "command to run is empty" if command_line.empty?
+
+      exec_read, exec_write = IO.pipe
+
+      pid = Process.fork {
+        exec_read.close
+        exec_write.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+        begin
+          Process.exec(*command_line)
+        rescue
+          exec_write.write($!.to_s)
+        end
+      }
+
+      begin
+        [exec_write].each {|io| io.close }
+
+        error = exec_read.read
+        if error.to_s != ''
+          raise ForkExecError, "#{error}"
+        end
+      ensure
+        exec_read.close if ! exec_read.closed?
+      end
+
+      Process.wait2(pid)[1]
     end
 
     def self.run_program(command_line, environment, print_output)
