@@ -29,6 +29,8 @@ module CtestWrapper
     # Whether to run make.
     attr_reader :make
     alias make? make
+    # [] for use nothing.
+    attr_reader :make_targets
 
     def initialize(args)
       @args = args
@@ -39,11 +41,17 @@ module CtestWrapper
       @use_subdir = false
       @configuration = 'unix'
       @make = true
+      @make_targets = []
     end
 
     # Parses the arguments and maybe exits.
     def parse!
       other = @parser.parse(@args)
+
+      if @make == false && ! @make_targets.empty?
+        STDERR.puts "xctest: can't have --no-make with --targets"
+        Kernel.exit 1
+      end
 
       find_directories
 
@@ -106,6 +114,10 @@ module CtestWrapper
 
       op.on('-M', '--no-make', "Don't call make on the bindir before running tests.") {
         @make = false
+      }
+
+      op.on('-t', '--target=NAME', "Run this target when using make.  Can be called multiple times.") {|val|
+        @make_targets << val
       }
 
       op.on('-s', '--subdir', "Use a binary dir which mirrors the path in the srcdir when running tests.") {
@@ -290,7 +302,12 @@ module CtestWrapper
     def run_make
       return if ! @settings.make?
 
-      s = Fork.command('make')
+      prog = 'make'
+      args = @settings.make_targets
+      args_str = args.empty? ? '' : "\"#{args.join('" "')}\""
+      puts "xctest: exec #{prog} #{args_str}"
+
+      s = Fork.command(prog, *args)
       if ! s.success?
         Kernel.exit 1
       end
