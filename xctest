@@ -18,12 +18,16 @@ module CtestWrapper
     attr_reader :bin_dir, :src_dir
     # Directory under the main dirs, e.g. bin_dir + ./test/blah
     attr_reader :bin_subdir, :src_subdir
-    # Either :bindir, ir :bin_subdir, depending on settings.
+    # Either :bindir, or :bin_subdir, depending on settings.
     attr_reader :test_dir
+    # Which tests to run.
     attr_reader :names, :regexes
-
+    # -V in ctest.
     attr_reader :verbose
     alias verbose? verbose
+    # Whether to run make.
+    attr_reader :make
+    alias make? make
 
     def initialize(args)
       @args = args
@@ -33,6 +37,7 @@ module CtestWrapper
       @verbose = false
       @use_subdir = false
       @configuration = 'unix'
+      @make = true
     end
 
     # Parses the arguments and maybe exits.
@@ -97,6 +102,10 @@ module CtestWrapper
     def make_parser
       op = OptionParser.new
       op.banner += "\nRuns tests using the standard project structure."
+
+      op.on('-M', '--no-make', "Don't call make on the bindir before running tests.") {
+        @make = false
+      }
 
       op.on('-s', '--subdir', "Use a binary dir which mirrors the path in the srcdir when running tests.") {
         listfile = Pathname.getwd + "./CMakeLists.txt"
