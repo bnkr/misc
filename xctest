@@ -263,6 +263,7 @@ module CtestWrapper
       in_directory(@settings.test_dir) {
         name_args = make_name_args
         check_tests_exist(name_args)
+        run_make
         status = run_tests(name_args)
         Kernel.exit status.exitstatus
       }
@@ -285,6 +286,15 @@ module CtestWrapper
       end
 
       nil
+    end
+
+    def run_make
+      return if ! @settings.make?
+
+      s = Fork.command('make')
+      if ! s.success?
+        Kernel.exit 1
+      end
     end
 
     def run_tests(name_args)
