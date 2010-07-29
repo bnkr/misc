@@ -210,7 +210,7 @@ autocmd FileType text  set spell
 " Remove trailing whitespace from files that shouldn't have them
 " Complicated formulation to avoid writing over the substitution
 " history.
-autocmd FileType docbk,xxs,c,cpp,java,php,ruby,cmake,latex,lemon,tex
+autocmd FileType docbk,xxs,c,cpp,java,php,ruby,cmake,latex,lemon,tex,asciidoc
       \ autocmd BufWritePre <buffer>
       \ :call setline(1,map(getline(1,"$"),'substitute(v:val,"\\s\\+$","","")'))
 
