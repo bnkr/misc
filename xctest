@@ -302,22 +302,8 @@ module CtestWrapper
       cl << '-V' if @settings.verbose?
       cl += name_args
 
-      # TODO:
-      #   A bit better to use the Fork module in order to get the nice error
-      #   handling with the exec, but the run_program thing messes up the order
-      #   of output because it pipes everthing.  This will actually work just as
-      #   well for now (purely because we don't pipe anything which means ruby
-      #   errors still get displayed).
-
       puts "xctest: exec: #{cl[0]} \"#{cl[1..-1].join('" "')}\""
-      pid = Process.fork {
-        Kernel.exec(*cl)
-        Kernel.exit!(1)
-      }
-
-      pid, status = Process.wait2(pid)
-
-      status
+      status = Fork.command(*cl)
     end
 
     def in_directory(d)
