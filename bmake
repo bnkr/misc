@@ -50,16 +50,16 @@ module CtestWrapper
       begin
         @parser.parse(@args)
       rescue OptionParser::ParseError => e
-        STDERR.puts "xctest: #{e}"
+        STDERR.puts "bmake: #{e}"
         Kernel.exit 1
       end
 
       if @make == false
         if ! @make_names.empty?
-          STDERR.puts "xctest: make has been disabled but make targets have been given"
+          STDERR.puts "bmake: make has been disabled but make targets have been given"
           Kernel.exit 1
         elsif @test_names.empty? && @test_regexes.empty?
-          STDERR.puts "xctest: make has been disabled and no test names have been given"
+          STDERR.puts "bmake: make has been disabled and no test names have been given"
           Kernel.exit 1
         end
       end
@@ -88,19 +88,25 @@ module CtestWrapper
         project_name = here_bits[bin_bits.length]
         subdir_bits = here_bits[(bin_bits.length+1)..here_bits.length]
       else
-        STDERR.puts "xctest: this script must be run in a source or binary dir."
+        STDERR.puts "bmake: this script must be run in a source or binary dir."
         Kernel.exit(1)
       end
 
       project_root_src_dir = ROOT_SRC_DIR + project_name
       project_root_bin_dir = ROOT_BIN_DIR + project_name
 
-      fail if ! project_root_src_dir.directory?
-      fail if ! project_root_bin_dir.directory?
+      if ! project_root_src_dir.directory?
+        fail "wtf"
+      end
+
+      if ! project_root_bin_dir.directory?
+        STDERR.puts "bmake: this project does not appear to have a binary directory"
+        Kernel.exit 1
+      end
 
       project_root_bin_dir += "./#{@configuration}"
       if ! project_root_bin_dir.exist?
-        STDERR.puts "xctest: configuration directory '#{@configuration}' does not exist"
+        STDERR.puts "bmake: configuration directory '#{@configuration}' does not exist"
         Kernel.exit 1
       end
 
@@ -127,13 +133,13 @@ module CtestWrapper
       op.on('-h', '--help', "Print these options and exit.") {
         puts op
         puts
-        puts "xctest Copyright (C) James Webber, 2010."
+        puts "bmake Copyright (C) James Webber, 2010."
         Kernel.exit 1
       }
       op.on('-s', '--subdir', "Use a binary dir which mirrors the path in the srcdir when running tests.") {
         listfile = Pathname.getwd + "./CMakeLists.txt"
         if ! listfile.exist?
-          STDERR.puts "xctest: --subdir cannot be used when there is no CMakeLists.txt in the pwd."
+          STDERR.puts "bmake: --subdir cannot be used when there is no CMakeLists.txt in the pwd."
           Kernel.exit 1
         end
         @use_subdir = true
@@ -307,12 +313,12 @@ module CtestWrapper
       stdout, stderr, status = Fork.capture_command(*cl)
 
       if ! status.exited? || ! status.success?
-        STDERR.puts "xctest: CMake failed: output '#{stderr}'."
+        STDERR.puts "bmake: CMake failed: output '#{stderr}'."
       end
 
       # It doesn't print "No tests were found!!!" under -N mode.
       if stdout =~ /^[Tt]otal\s+[Tt]ests:\s*0\s*$/
-        STDERR.puts "xctest: no tests matching parameters given"
+        STDERR.puts "bmake: no tests matching parameters given"
         Kernel.exit 1
       end
 
@@ -325,7 +331,7 @@ module CtestWrapper
       prog = 'make'
       args = @settings.make_names
       args_str = args.empty? ? '' : "\"#{args.join('" "')}\""
-      puts "xctest: exec #{prog} #{args_str}"
+      puts "bmake: exec #{prog} #{args_str}"
 
       s = Fork.command(prog, *args)
       if ! s.success?
@@ -338,7 +344,7 @@ module CtestWrapper
       cl << '-V' if @settings.verbose?
       cl += name_args
 
-      puts "xctest: exec: #{cl[0]} \"#{cl[1..-1].join('" "')}\""
+      puts "bmake: exec: #{cl[0]} \"#{cl[1..-1].join('" "')}\""
       status = Fork.command(*cl)
     end
 
