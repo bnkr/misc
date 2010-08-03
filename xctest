@@ -22,7 +22,7 @@ module CtestWrapper
     # Either :bindir, or :bin_subdir, depending on settings.
     attr_reader :test_dir
     # Which tests to run.
-    attr_reader :names, :regexes
+    attr_reader :test_names, :test_regexes
     # -V in ctest.
     attr_reader :verbose
     alias verbose? verbose
@@ -30,27 +30,38 @@ module CtestWrapper
     attr_reader :make
     alias make? make
     # [] for use nothing.
-    attr_reader :make_targets
+    attr_reader :make_names
 
     def initialize(args)
       @args = args
       @parser = make_parser
-      @names = []
-      @regexes = []
+      @test_names = []
+      @test_regexes = []
       @verbose = false
       @use_subdir = false
       @configuration = 'unix'
       @make = true
-      @make_targets = []
+      @make_names = []
     end
 
     # Parses the arguments and maybe exits.
     def parse!
-      other = @parser.parse(@args)
-
-      if @make == false && ! @make_targets.empty?
-        STDERR.puts "xctest: can't have --no-make with --targets"
+      other = []
+      begin
+        @parser.parse(@args)
+      rescue OptionParser::ParseError => e
+        STDERR.puts "xctest: #{e}"
         Kernel.exit 1
+      end
+
+      if @make == false
+        if ! @make_names.empty?
+          STDERR.puts "xctest: make has been disabled but make targets have been given"
+          Kernel.exit 1
+        elsif @test_names.empty? && @test_regexes.empty?
+          STDERR.puts "xctest: make has been disabled and no test names have been given"
+          Kernel.exit 1
+        end
       end
 
       find_directories
@@ -110,16 +121,15 @@ module CtestWrapper
 
     def make_parser
       op = OptionParser.new
-      op.banner += "\nRuns tests using the standard project structure."
+      op.banner += "\nBuilds and tests projects using the standard bunker project structure.\n\n"
 
-      op.on('-M', '--no-make', "Don't call make on the bindir before running tests.") {
-        @make = false
+      op.separator "General:"
+      op.on('-h', '--help', "Print these options and exit.") {
+        puts op
+        puts
+        puts "xctest Copyright (C) James Webber, 2010."
+        Kernel.exit 1
       }
-
-      op.on('-t', '--target=NAME', "Run this target when using make.  Can be called multiple times.") {|val|
-        @make_targets << val
-      }
-
       op.on('-s', '--subdir', "Use a binary dir which mirrors the path in the srcdir when running tests.") {
         listfile = Pathname.getwd + "./CMakeLists.txt"
         if ! listfile.exist?
@@ -128,25 +138,30 @@ module CtestWrapper
         end
         @use_subdir = true
       }
-
-      op.on('-r', '--regex=EXPR', "A CMake regex to run tests matching.  Can be given multiple times.") {|val|
-        @regexes << val
-      }
-
       op.on('-c', '--config=CONFIG', "Configuration dir.  Default is 'unix'.") {|name|
         @configuration = name
       }
+      op.on('-v', '--verbose', "Always print outputs of tests.") { @verbose = true }
 
-      op.on('-n', '--name=NAME', "Name of test to run.  Can be given multiple times.") {|name|
-        @names << name
+      op.separator "\nMaking:"
+      op.on('-M', '--no-make', "Don't call make.") {
+        @make = false
+      }
+      op.on('-m', '--make=NAME', "Run this target when using make.  Can be called multiple times.") {|val|
+        @make_names << val
       }
 
-      op.on('-N', '--name-target=NAME', "Like -n, but also add the name to the targets to run..") {|name|
-        @names << name
-        @make_targets << name
+      op.separator "\nTesting:"
+      op.on('-t', '--test=NAME', "Name of test to run.  Can be given multiple times.") {|name|
+        @test_names << name
       }
-
-      op.on('-v', '--verbose', "Be loud.") { @verbose = true }
+      op.on('-r', '--regex=EXPR', "A CMake regex to run tests matching.  Can be given multiple times.") {|val|
+        @test_regexes << val
+      }
+      op.on('-T', '--test-target=NAME', "Same as giving -t NAME -m NAME.") {|name|
+        @test_names << name
+        @make_names << name
+      }
 
       op
     end
@@ -308,7 +323,7 @@ module CtestWrapper
       return if ! @settings.make?
 
       prog = 'make'
-      args = @settings.make_targets
+      args = @settings.make_names
       args_str = args.empty? ? '' : "\"#{args.join('" "')}\""
       puts "xctest: exec #{prog} #{args_str}"
 
@@ -337,16 +352,16 @@ module CtestWrapper
       end
     end
 
-    # Return [-R, names] or [].
+    # Return [-R, test_names] or [].
     def make_name_args
       re_arg = str_arg = nil
 
-      if ! @settings.regexes.empty?
-        re_arg = "(" + @settings.regexes.join(')|(') + ")"
+      if ! @settings.test_regexes.empty?
+        re_arg = "(" + @settings.test_regexes.join(')|(') + ")"
       end
 
-      if ! @settings.names.empty?
-        str_arg = "^" + @settings.names.join('$|^') + "$"
+      if ! @settings.test_names.empty?
+        str_arg = "^" + @settings.test_names.join('$|^') + "$"
       end
 
       if re_arg || str_arg
