@@ -33,7 +33,7 @@ wait_retry() {
     BROKEN_TIME=`date +%s`
   fi
 
-  echo "Retrying..."
+  echo "Sleeping..."
   sleep 3;
 }
 
@@ -43,26 +43,46 @@ print_help() {
   echo
   echo "  -d  print a dialog if everything is OK."
   echo "  -a  test all nodes instead of restarting every failure."
+  echo "  -c  continue testing even if everything is OK."
+}
+
+print_broken_time() {
+  if test "$BROKEN_TIME" -gt 0; then
+    now=`date +%s`
+    diff=$(($now - $BROKEN_TIME))
+    m=$(( $diff / 60 ))
+    s=$(( $diff % 60 ))
+    echo "Down for ${m} mins and ${s} seconds."
+
+    # Don't print it again next time we reach this function unless it's got
+    # borken again.
+    BROKEN_TIME=0
+  fi
 }
 
 DIALOG=0
+CONTINUE=0
 while test $# -gt 0; do
   case "$1" in
-    -h) print_help; exit 0 
+    -h) print_help; exit 0
        ;;
     -d) DIALOG=1
        ;;
-    --dialog) DIALOG=1 
+    --dialog) DIALOG=1
        ;;
     -a) ALL=1
        ;;
-    *) echo "Unexpected argument: $1" 1>&2; exit 1; 
+    -c) CONTINUE=1
+       ;;
+    *) echo "Unexpected argument: $1" 1>&2; exit 1;
        ;;
   esac
   shift
 done
 
-while test $BROKEN -eq 1; do
+trap "echo; print_broken_time; exit 1" INT
+
+while true; do
   BROKEN=0
   checkhost "Mulder:" 192.168.1.1
   if test $BROKEN -eq 1 && test $ALL -ne 1; then wait_retry; continue; fi
@@ -78,15 +98,16 @@ while test $BROKEN -eq 1; do
 
   checkhost "Extern:" bunkerprivate.com
   if test $BROKEN -eq 1; then wait_retry; continue; fi
+
+  if test $CONTINUE; -eq 1; then
+    # We must not be broken if we got this far
+    print_broken_time
+  else
+    break
+  fi
 done
 
-if test "$BROKEN_TIME" -gt 0; then
-  now=`date +%s`
-  diff=$(($now - $BROKEN_TIME))
-  m=$(( $diff / 60 ))
-  s=$(( $diff % 60 ))
-  echo "Down for ${m} mins and ${s} seconds."
-fi
+print_broken_time
 
 if test $DIALOG -eq 1; then
   kdialog --msgbox "The system is up again!"
