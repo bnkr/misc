@@ -99,9 +99,11 @@ while true; do
   checkhost "Extern:" bunkerprivate.com
   if test $BROKEN -eq 1; then wait_retry; continue; fi
 
-  if test $CONTINUE; -eq 1; then
+  if test "$CONTINUE" -eq 1; then
     # We must not be broken if we got this far
     print_broken_time
+    echo "Sleeping..."
+    sleep 15
   else
     break
   fi
