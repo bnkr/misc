@@ -62,6 +62,8 @@ module CtestWrapper
           STDERR.puts "bmake: make has been disabled and no test names have been given"
           Kernel.exit 1
         end
+      elsif @test_names.empty? && @make_names.empty?
+        @name_names = ['all']
       end
 
       find_directories
@@ -291,6 +293,7 @@ module CtestWrapper
     end
   end
 
+  # Functions which have identifiers trailed with exclamation marks can exit.
   class CommandLine
     def initialize(args); @args = args; end
 
@@ -299,16 +302,15 @@ module CtestWrapper
 
       in_directory(@settings.test_dir) {
         name_args = make_name_args
-        check_tests_exist(name_args)
-        run_make
-        status = run_tests(name_args)
-        Kernel.exit status.exitstatus
+        check_tests_exist!(name_args) if name_args != []
+        run_make!
+        run_tests!(name_args) if name_args != []
       }
     end
 
     private
 
-    def check_tests_exist(name_args)
+    def check_tests_exist!(name_args)
       cl = %w{ctest -N} + name_args
       stdout, stderr, status = Fork.capture_command(*cl)
 
@@ -325,7 +327,7 @@ module CtestWrapper
       nil
     end
 
-    def run_make
+    def run_make!
       return if ! @settings.make?
 
       prog = 'make'
@@ -336,10 +338,12 @@ module CtestWrapper
       s = Fork.command(prog, *args)
       if ! s.success?
         Kernel.exit 1
+      else
+        s
       end
     end
 
-    def run_tests(name_args)
+    def run_tests!(name_args)
       cl = %w{ctest --output-on-failure}
       cl << '-V' if @settings.verbose?
       cl += name_args
