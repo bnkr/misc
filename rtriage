@@ -1,0 +1,380 @@
+#!/usr/bin/ruby -w
+# Copyright (C) 2010, James Webber.  Distributed under a 3-clause BSD license;
+# see COPYING.
+#
+# Parses relevant information from the spamdump of a ruby test including
+# filtering not implemented tests and ignoring failures we already know about.
+#
+# See: $0 --help
+
+require 'pathname'
+require 'optparse'
+
+module Triage
+  def Object.attr_bool_reader(sym)
+    module_eval "def #{sym}?; @#{sym}; end"
+  end
+
+  # Container for settings and parser of cli.
+  class Settings
+    attr_bool_reader :parse_inputs
+    attr_reader :names, :regexes
+    attr_reader :inputs
+
+    def initialize
+      @inputs = []
+      @names = []
+      @regexes = []
+      @parse_inputs = false
+    end
+
+    # Parse and mauybe exit.
+    def parse!(args)
+      p = make_parser
+      files = p.parse(args)
+
+      if parse_inputs? && (! @regexes.empty? || ! @names.empty?)
+        exit_fail("--parse is not allowed with regexes or names")
+      end
+
+      if files.empty?
+        exit_fail("no input files")
+      end
+
+      files.each {|f|
+        f = Pathname.new(f)
+        if ! f.exist?
+          exit_fail("file #{f} does not exist")
+        elsif f.directory?
+          exit_fail("file #{f} is a directory")
+        end
+
+        # realpath also helps duplicate requires work out properly because
+        # two different relative paths to the same file are accepted as
+        # different.
+        @inputs << f.realpath
+      }
+
+      self
+    end
+
+    private
+
+    def exit_fail(message)
+      STDERR.puts "triage: #{message}"
+      Kernel.exit 1
+    end
+
+    def make_parser
+      op = OptionParser.new
+      op.banner += " file...\nWraps ruby tests and extracts relevant information.\n"
+
+      op.separator "\nOptions:"
+      op.on("--help", "This message") {
+        puts op
+        Kernel.exit 0
+      }
+
+      op.on('-p', '--parse', "Parse the files for test output instead of running them.") {
+        @parse_inputs = true
+      }
+
+      op.on('-n', '--name=TEST', "Name of test to run.  Can be given multiple times.") {|val|
+        @names << val
+      }
+
+      op.on('-r', '--regex=REGEX', "Regex to match tests.  Can be given multiple times.") {|val|
+        @regexes << val
+      }
+
+      op
+    end
+  end
+
+  # For errors in parsing the log.
+  class LogError < RuntimeError; end
+
+  # Stateful per-line output parsing.
+  class StatefulLogParser
+    # Counts.
+    Totals = Struct.new(:tests, :asserts, :failures, :errors)
+
+    # Yielded when parsing.
+    Data = Struct.new(
+      :error_type,
+      :test_name, :test_class,
+      # only if :error_type == 'Error'
+      :exception_class,
+      :backtrace,
+      :message
+    )
+
+    # A Totals class.  Available after parse is finished.
+    attr_reader :totals
+
+    def initialize
+      @state = StStart
+      @line_num = 0
+      # number of tests and assertions etc. at the end of the file
+      @totals = Totals.new
+      # Will store "Error|Failure" etc.
+      @data = nil
+    end
+
+    # Call for every line.
+    def line(l, &blk)
+      @line = l
+      @line_num += 1
+      begin
+        send(STATE_TABLE[@state], &blk)
+      rescue ParseAgain
+        retry
+      end
+    end
+
+    # Call at EOF when using the line().
+    def finish
+      if @state == StStart
+        raise LogError, "could not find the start of the summary"
+      elsif @state != StEnd
+        raise LogError, "file ended in bad state: #{@state}"
+      end
+    end
+
+    private
+
+    class ParseAgain < Exception; end
+
+    states = %w{
+      Start End
+      MessageStart
+      ErrorLocation ErrorException ErrorTrace
+      FailureLocation FailureTrace FailureBody
+    }
+
+    STATE_TABLE = {}
+    states.each {|name|
+      eval "class St#{name}; end"
+      eval "STATE_TABLE[St#{name}] = :state_#{name.downcase}"
+    }
+
+    ## State Fucntions ##
+
+    MessageStartBitRe = /^Finished in [0-9]+([.][0-9]+) seconds\.$/
+
+    # Looking for the MessageStartBitRe
+    def state_start
+      if line_matches?(MessageStartBitRe)
+        change_state(StMessageStart)
+      end
+    end
+
+    TotalsRe = /^([0-9]+) tests, ([0-9]+) assertions, ([0-9]+) failures, ([0-9]+) errors$/
+
+    # Looking for the start of an error something like "1) Error"
+    def state_messagestart(&blk)
+      if (m = line_matches?(/^\s*[0-9]+\)\s*([^:]+):/))
+        yield @data if @data
+        @data = Data.new
+        @data.error_type = m[1].to_s
+        s = case @data.error_type
+            when 'Error' then StErrorLocation
+            when 'Failure' then StFailureLocation
+            else lraise("unknown test type #{@data.test_type}")
+            end
+        change_state(s)
+      elsif line_matches?(/^\s*$/)
+        # skip empty lines
+      elsif (m = line_matches?(TotalsRe))
+        # id @data because there might have been no matching tests.
+        yield @data if @data
+
+        subexpr = {
+          :tests= => 0,
+          :asserts= => 1,
+          :failures= => 2,
+          :errors= => 3
+        }
+
+        subexpr.each_pair {|k,v| @totals.send(k, m[v].to_i) }
+
+        change_state(StEnd)
+      else
+        lwarn "expected start of error; got '#{@line.chomp}'"
+        lwarn "assuming we started the log summary in the wrong place"
+        change_state(StStart)
+      end
+    end
+
+    def state_re
+      lraise("more data after ending totals: #{@line.chomp}")
+    end
+
+    SimpleLocationRe = /^([a-zA-Z0-9_]+)\([^)]+\)[:]?$/
+
+    # The line after the "1) Error" bit for Error message types.
+    def state_errorlocation
+      m = @line.match(SimpleLocationRe)
+
+      if ! m
+        lwarn "expected 'test_name(TestClass)'; got '#{@line.chomp}'"
+        lwarn "assuming we started the log summary in the wrong place"
+        change_state(StStart)
+        return
+      end
+
+      @data.test_name = m[1]
+      @data.test_class = m[2]
+
+      change_state(StErrorException)
+    end
+
+    # For an "Error" type test failure.  We should be on the exception type and
+    # message line
+    def state_errorexception
+      m = @line.match(/^([^:]+): (.+)$/)
+
+      if ! m
+        lwarn "expected 'Type: message'; got '#{@line.chomp}'"
+        lwarn "assuming we started the log summary in the wrong place"
+        change_state(StStart)
+        return
+      end
+
+      @data.exception_class = m[1]
+      @data.message = m[2].to_s.strip
+
+      change_state(StErrorTrace)
+    end
+
+    # Indented backtrace after an exception message.
+    def state_errortrace
+      if line_empty?
+        change_state(StMessageStart)
+      elsif line_matches?(/^\s+/)
+        @data.backtrace ||= []
+        @data.backtrace << @line.strip
+      else
+        # This can happen in some cases.
+        @data.message << @line.strip
+      end
+    end
+
+    # like "test_name(ClaseName) [function]:"
+    TracedLocationRe = /^([a-zA-Z0-9_]+)\([^)]+\)\s*\[[^\]]+\]:$/
+
+    # Just like ErrorLocation except there can be a mini-backtrace on the same
+    # line.
+    def state_failurelocation
+      if (m = line_matches?(SimpleLocationRe))
+        @data.test_name = m[1]
+        @data.test_class = m[2]
+        change_state(StFailureTrace)
+      elsif (m = line_matches?(TracedLocationRe))
+        @data.test_name = m[1]
+        @data.test_class = m[2]
+        @data.backtrace = m[3]
+        change_state(StFailureBody)
+      else
+        lraise("dunno: '#{@line.chomp}'")
+      end
+    end
+
+    # The small backtrace at the start of a failure type error.
+    def state_failuretrace
+      if line_matches?(/^\s+/)
+        @data.backtrace ||= []
+        @data.backtrace << @line.strip
+      else
+        @data.backtrace[0].gsub!(/^\[/, '')
+        @data.backtrace[-1].gsub!(/\]:$/, '')
+        change_state(StFailureBody)
+        raise ParseAgain
+      end
+    end
+
+    # Messages or similar.
+    def state_failurebody
+      if line_empty?
+        change_state(StMessageStart)
+      else
+        @data.message ||= ''
+        @data.message << @line
+      end
+    end
+
+    ## utility ##
+
+    def line_matches?(re)
+      @line =~ re
+      $~
+    end
+
+    def line_empty?; line_matches?(/^\s*$/); end
+
+    def change_state(new_state)
+      @state = new_state
+    end
+
+    def lwarn(s)
+      lputs "warning: #{s}", STDERR
+    end
+
+    def lputs(s, stream = STDOUT); stream.puts "#{@line_num}: #{s}"; end
+    def lraise(message)
+      raise LogError, "#{@state}: #{@line_num}: #{message}"
+    end
+  end
+
+  # Non-stateful parser.  Parses one file.
+  class LogFileParser
+    # With block calls parse immediately.
+    def initialize(file, &blk)
+      @lp = StatefulLogParser.new
+      @file = file
+
+      if block_given?
+        parse(&blk)
+      end
+    end
+
+    # Invalid unless parse() has been run.
+    def totals; @lp.totals; end
+
+    # Yield data about every test.  Returns totals.
+    def parse(&blk)
+      File.open(@file.to_s, 'r') {|io|
+        io.each_line {|l| @lp.line(l, &blk) }
+      }
+      @lp.finish
+      @lp.totals
+    end
+  end
+
+  # Entry point for the program's command-line.
+  class CommandLine
+    def initialize(args)
+      @args = args
+      @settings = nil
+    end
+
+    def run!
+      @settings = Settings.new.parse!(@args)
+
+      if @settings.parse_inputs?
+        @settings.inputs.each {|file|
+          p = LogFileParser.new(file)
+          p.parse {|data|
+
+          }
+          p.totals
+        }
+      else
+        fail "running tests not implemented"
+      end
+    end
+
+  end
+end
+
+Triage::CommandLine.new(ARGV).run!
