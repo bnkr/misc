@@ -237,7 +237,7 @@ module Triage
       lraise("more data after ending totals: #{@line.chomp}")
     end
 
-    SimpleLocationRe = /^([a-zA-Z0-9_]+)\([^)]+\)[:]?$/
+    SimpleLocationRe = /^([a-zA-Z0-9_]+)\(([^)]+)\)[:]?$/
 
     # The line after the "1) Error" bit for Error message types.
     def state_errorlocation
