@@ -390,6 +390,26 @@ module Triage
     end
   end
 
+  # Handle the state of printing out errors.
+  class ErrorPrinter
+    def initialize
+      @last_class = nil
+    end
+
+    def print(e)
+      failure = LogFileParser::TypeFailure
+      error = LogFileParser::TypeError
+      if e.message =~ /not implemented/
+        return
+      end
+
+      if @last_class != e.test_class
+        @last_class = e.test_class
+        puts "* #{e.test_class}"
+      end
+    end
+  end
+
   # Entry point for the program's command-line.
   class CommandLine
     def initialize(args)
@@ -399,26 +419,22 @@ module Triage
 
     def run!
       @settings = Settings.new.parse!(@args)
-
-      if @settings.parse_inputs?
-        @settings.inputs.each {|file|
-          p = LogFileParser.new(file)
-
-          failure = LogFileParser::TypeFailure
-          error = LogFileParser::TypeError
-
-          p.parse {|e|
-            next if e.type == error && e.message =~ /not implemented/
-
-            puts "* #{e.test_class}"
-          }
-          p.totals
-        }
+      if @settings.logs?
+        parse_log_files
       else
         fail "running tests not implemented"
       end
     end
 
+    # The fisrt major mode of the program.
+    def parse_log_files
+      pr = ErrorPrinter.new
+      @settings.inputs.each {|file|
+        p = LogFileParser.new(file)
+        p.parse {|e| pr.print(e) }
+        p.totals
+      }
+    end
   end
 end
 
