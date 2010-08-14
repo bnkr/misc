@@ -99,6 +99,11 @@ module Triage
     # Counts.
     Totals = Struct.new(:tests, :asserts, :failures, :errors)
 
+    # An uncaught exception.
+    class TypeError; end
+    # An assertion failed (including exception-asserts)
+    class TypeFailure; end
+
     # Yielded when parsing.
     Data = Struct.new(
       :error_type,
@@ -176,13 +181,13 @@ module Triage
       if (m = line_matches?(/^\s*[0-9]+\)\s*([^:]+):/))
         yield @data if @data
         @data = Data.new
-        @data.error_type = m[1].to_s
-        s = case @data.error_type
-            when 'Error' then StErrorLocation
-            when 'Failure' then StFailureLocation
-            else lraise("unknown test type #{@data.test_type}")
-            end
-        change_state(s)
+        @data.error_type, state =
+          case m[1].to_s
+          when 'Error' then [TypeError, StErrorLocation]
+          when 'Failure' then [TypeFailure, StFailureLocation]
+          else lraise("unknown test type #{@data.test_type}")
+          end
+        change_state(state)
       elsif line_matches?(/^\s*$/)
         # skip empty lines
       elsif (m = line_matches?(TotalsRe))
@@ -328,6 +333,10 @@ module Triage
 
   # Non-stateful parser.  Parses one file.
   class LogFileParser
+    # Helpful aliases.
+    TypeError = StatefulLogParser::TypeError
+    TypeFailure = StatefulLogParser::TypeFailure
+
     # With block calls parse immediately.
     def initialize(file, &blk)
       @lp = StatefulLogParser.new
