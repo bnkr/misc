@@ -126,6 +126,8 @@ module Triage
       # Will store "Error|Failure" etc.
       @data = nil
       @suite_name = nil
+      # see repeat_spam_check
+      @repeated_spam_check = false
     end
 
     # Call for every line.
@@ -141,8 +143,15 @@ module Triage
 
     # Call at EOF when using the line().
     def finish
-      if @state == StStart || @state == StSpam
-        raise LogError, "could not find the start of the summary"
+      if @state == StStart
+        raise LogError, "no suite name"
+      elsif @state == StSpam
+        if @repeated_spam_check
+          m = "could not find the start of the error information despite repeated tries"
+        else
+          m = "could not find the start of the error information"
+        end
+        raise LogError, m
       elsif @state != StEnd
         raise LogError, "file ended in bad state: #{@state}"
       end
@@ -324,7 +333,7 @@ module Triage
     def repeat_spam_check
       lwarn "assuming we started the log summary in the wrong place"
       change_state(StSpam)
-      @repeat_spam_check = true
+      @repeated_spam_check = true
     end
 
     def line_matches?(re)
