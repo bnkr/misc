@@ -181,7 +181,7 @@ module Triage
 
     def state_start
       if (m = line_matches?(/^Loaded suite (.+)/))
-        @suite_name = m[1]
+        @suite_name = m.to_a.at(1)
         change_state(StSpam)
       end
     end
@@ -205,7 +205,7 @@ module Triage
         @data = Data.new
         @data.log_line = @line_num
         @data.type, state =
-          case m[1].to_s
+          case m.to_a.at(1).to_s
           when 'Error' then [TypeError, StErrorLocation]
           when 'Failure' then [TypeFailure, StFailureLocation]
           else lraise("unknown test type #{@data.test_type}")
@@ -249,8 +249,8 @@ module Triage
         return
       end
 
-      @data.test_name = m[1]
-      @data.test_class = m[2]
+      @data.test_name = m.to_a.at(1)
+      @data.test_class = m.to_a.at(2)
 
       change_state(StErrorException)
     end
@@ -292,13 +292,15 @@ module Triage
     # line.
     def state_failurelocation
       if (m = line_matches?(SimpleLocationRe))
-        @data.test_name = m[1]
-        @data.test_class = m[2]
+        m = m.to_a
+        @data.test_name = m.at(1)
+        @data.test_class = m.at(2)
         change_state(StFailureTrace)
       elsif (m = line_matches?(TracedLocationRe))
-        @data.test_name = m[1]
-        @data.test_class = m[2]
-        @data.backtrace = m[3]
+        m = m.to_a
+        @data.test_name = m.at(1)
+        @data.test_class = m.at(2)
+        @data.backtrace = m.at(3)
         change_state(StFailureBody)
       else
         lraise("dunno: '#{@line.chomp}'")
