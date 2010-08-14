@@ -286,7 +286,7 @@ module Triage
     end
 
     # like "test_name(ClaseName) [function]:"
-    TracedLocationRe = /^([a-zA-Z0-9_]+)\([^)]+\)\s*\[[^\]]+\]:$/
+    TracedLocationRe = /^([a-zA-Z0-9_]+)\(([^)]+)\)\s*\[([^\]]+)\]:$/
 
     # Just like ErrorLocation except there can be a mini-backtrace on the same
     # line.
