@@ -17,7 +17,7 @@ module Triage
 
   # Container for settings and parser of cli.
   class Settings
-    attr_bool_reader :parse_inputs
+    attr_bool_reader :logs
     attr_reader :names, :regexes
     attr_reader :inputs
 
@@ -25,7 +25,7 @@ module Triage
       @inputs = []
       @names = []
       @regexes = []
-      @parse_inputs = false
+      @logs = false
     end
 
     # Parse and mauybe exit.
@@ -33,7 +33,7 @@ module Triage
       p = make_parser
       files = p.parse(args)
 
-      if parse_inputs? && (! @regexes.empty? || ! @names.empty?)
+      if logs? && (! @regexes.empty? || ! @names.empty?)
         exit_fail("--parse is not allowed with regexes or names")
       end
 
@@ -75,8 +75,8 @@ module Triage
         Kernel.exit 0
       }
 
-      op.on('-p', '--parse', "Parse the files for test output instead of running them.") {
-        @parse_inputs = true
+      op.on('-l', '--logs', "Input files are logs to be parsed (run no tests).") {
+        @logs = true
       }
 
       op.on('-n', '--name=TEST', "Name of test to run.  Can be given multiple times.") {|val|
