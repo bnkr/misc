@@ -106,9 +106,10 @@ module Triage
 
     # Yielded when parsing.
     Data = Struct.new(
-      :error_type,
+      :type,
+      # Location
       :test_name, :test_class,
-      # only if :error_type == 'Error'
+      # only if :type == 'TypeError'
       :exception_class,
       :backtrace,
       :message
@@ -124,6 +125,7 @@ module Triage
       @totals = Totals.new
       # Will store "Error|Failure" etc.
       @data = nil
+      @suite_name = nil
     end
 
     # Call for every line.
@@ -139,7 +141,7 @@ module Triage
 
     # Call at EOF when using the line().
     def finish
-      if @state == StStart
+      if @state == StStart || @state == StSpam
         raise LogError, "could not find the start of the summary"
       elsif @state != StEnd
         raise LogError, "file ended in bad state: #{@state}"
@@ -151,7 +153,7 @@ module Triage
     class ParseAgain < Exception; end
 
     states = %w{
-      Start End
+      Start Spam End
       MessageStart
       ErrorLocation ErrorException ErrorTrace
       FailureLocation FailureTrace FailureBody
@@ -163,12 +165,22 @@ module Triage
       eval "STATE_TABLE[St#{name}] = :state_#{name.downcase}"
     }
 
-    ## State Fucntions ##
+    #####################
+    ## State Functions ##
+    #####################
 
-    MessageStartBitRe = /^Finished in [0-9]+([.][0-9]+) seconds\.$/
-
-    # Looking for the MessageStartBitRe
     def state_start
+      if (m = line_matches?(/^Loaded suite (.+)/))
+        @suite_name = m[1]
+        change_state(StSpam)
+      end
+    end
+
+    MessageStartBitRe = /^Finished in [0-9]+([.][0-9]+)? seconds\.$/
+
+    # Looking for the MessageStartBitRe (the end of the test spam and the
+    # start of the messages)
+    def state_spam
       if line_matches?(MessageStartBitRe)
         change_state(StMessageStart)
       end
@@ -181,7 +193,7 @@ module Triage
       if (m = line_matches?(/^\s*[0-9]+\)\s*([^:]+):/))
         yield @data if @data
         @data = Data.new
-        @data.error_type, state =
+        @data.type, state =
           case m[1].to_s
           when 'Error' then [TypeError, StErrorLocation]
           when 'Failure' then [TypeFailure, StFailureLocation]
@@ -206,8 +218,7 @@ module Triage
         change_state(StEnd)
       else
         lwarn "expected start of error; got '#{@line.chomp}'"
-        lwarn "assuming we started the log summary in the wrong place"
-        change_state(StStart)
+        repeat_spam_check
       end
     end
 
@@ -223,8 +234,7 @@ module Triage
 
       if ! m
         lwarn "expected 'test_name(TestClass)'; got '#{@line.chomp}'"
-        lwarn "assuming we started the log summary in the wrong place"
-        change_state(StStart)
+        repeat_spam_check
         return
       end
 
@@ -241,8 +251,7 @@ module Triage
 
       if ! m
         lwarn "expected 'Type: message'; got '#{@line.chomp}'"
-        lwarn "assuming we started the log summary in the wrong place"
-        change_state(StStart)
+        repeat_spam_check
         return
       end
 
@@ -308,7 +317,15 @@ module Triage
       end
     end
 
+    #############
     ## utility ##
+    #############
+
+    def repeat_spam_check
+      lwarn "assuming we started the log summary in the wrong place"
+      change_state(StSpam)
+      @repeat_spam_check = true
+    end
 
     def line_matches?(re)
       @line =~ re
@@ -373,8 +390,14 @@ module Triage
       if @settings.parse_inputs?
         @settings.inputs.each {|file|
           p = LogFileParser.new(file)
-          p.parse {|data|
 
+          failure = LogFileParser::TypeFailure
+          error = LogFileParser::TypeError
+
+          p.parse {|e|
+            next if e.type == error && e.message =~ /not implemented/
+
+            puts "* #{e.test_class}"
           }
           p.totals
         }
