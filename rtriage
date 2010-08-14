@@ -112,7 +112,8 @@ module Triage
       # only if :type == 'TypeError'
       :exception_class,
       :backtrace,
-      :message
+      :message,
+      :log_line
     )
 
     # A Totals class.  Available after parse is finished.
@@ -202,6 +203,7 @@ module Triage
       if (m = line_matches?(/^\s*[0-9]+\)\s*([^:]+):/))
         yield @data if @data
         @data = Data.new
+        @data.log_line = @line_num
         @data.type, state =
           case m[1].to_s
           when 'Error' then [TypeError, StErrorLocation]
