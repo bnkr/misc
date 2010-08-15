@@ -162,11 +162,14 @@ module Triage
 
     class ParseAgain < Exception; end
 
+    # See docs of state_#{one_of_these.downcase} for what the states mean.
     states = %w{
       Start Spam End
       MessageStart
       ErrorLocation ErrorException ErrorTrace
-      FailureLocation FailureTrace FailureBody
+      FailureLocation FailureTrace
+      FailureAssertMessage FailureBody
+      FailureExceptionMessage FailureExceptionType FailureExceptionBacktrace
     }
 
     STATE_TABLE = {}
@@ -320,13 +323,51 @@ module Triage
       end
     end
 
-    # Messages or similar.
+    # Either the start of a textual message (from assert failure) or the header
+    # for an assert_nothing_raised bit.
     def state_failurebody
-      if line_empty?
-        change_state(StMessageStart)
+      if line_matches?(/^Exception raised:/)
+        change_state(StFailureExceptionType)
       else
         @data.message ||= ''
         @data.message << @line
+        change_state(StFailureAssertMessage)
+      end
+    end
+
+    # A standard message.
+    def state_failureassertmessage
+      if line_empty?
+        change_state(StMessageStart)
+      else
+        @data.message << @line
+      end
+    end
+
+    # After the start of an exception failure:
+    def state_failureexceptiontype
+      if (m = line_matches?(/^Class: <([^>]+)>/))
+        @data.exception_class = m[1]
+        change_state(StFailureExceptionMessage)
+      else
+        lraise("'Class: <something>' after assert-nothing-raised header")
+      end
+    end
+
+    # After Class:, we get Message <blah>.
+    def state_failureexceptionmessage
+      if (m = line_matches?(/^Message: <"([^"]+)">/))
+        @data.message = m[1]
+        change_state(StFailureExceptionBacktrace)
+      else
+        lraise_expected("'Message: <something>' after Class: <#{@data.exception_class}>")
+      end
+    end
+
+    # Skip everything until the end of the message.
+    def state_failureexceptionbacktrace
+      if line_empty?
+        change_state(StMessageStart)
       end
     end
 
@@ -356,8 +397,13 @@ module Triage
     end
 
     def lputs(s, stream = STDOUT); stream.puts "#{@line_num}: #{s}"; end
+
     def lraise(message)
       raise LogError, "#{@state}: #{@line_num}: #{message}"
+    end
+
+    def lraise_expected(message)
+      lraise("expected #{message}; got '#{@line.chomp}'")
     end
   end
 
@@ -396,10 +442,15 @@ module Triage
       @last_class = nil
     end
 
-    def print(e)
+    # +parser+ is needed for the meta-info (e.g. suite name).
+    def print(parser, error_data)
+      e = error_data
+      # we'll need settings regarding this
       failure = LogFileParser::TypeFailure
       error = LogFileParser::TypeError
-      if e.message =~ /not implemented/
+      if e.type == error && e.message == 'not implemented'
+        return
+      elsif e.message =~ /not implemented/
         return
       end
 
@@ -407,6 +458,13 @@ module Triage
         @last_class = e.test_class
         puts "* #{e.test_class}"
       end
+
+      puts "  - #{e.test_name}"
+      puts "    #{e.message.match(/^[^\n]+/)}"
+    end
+
+    # Handle the unit counts.
+    def totals(t)
     end
   end
 
@@ -431,8 +489,28 @@ module Triage
       pr = ErrorPrinter.new
       @settings.inputs.each {|file|
         p = LogFileParser.new(file)
-        p.parse {|e| pr.print(e) }
+        p.parse {|e| pr.print(p, e) }
+
+        pr.totals(p.totals)
         p.totals
+
+        # TODO:
+        #
+        # Log Display:
+        # - print out in a pretty way avec colour
+        # - remove "not implemented" errors, but more sensibly -- I think I need
+        #   to parse further into the assert_nothing_raised failures.
+        # - load data from a file on things we already know about
+        # - --changes option gives a special report of new failures and new
+        #   successes
+        # - print out the command to run a test (if at all possible) -- prolly
+        #   there needs to be a start() function which loads up the suite name
+        #   and then stops for more.
+        # - option to show/hide not-implemented (there should always be a count)
+        #
+        # Running:
+        # - write to a file or pipe by option
+        # - run the test command(s).
       }
     end
   end
