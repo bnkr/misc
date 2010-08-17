@@ -20,12 +20,14 @@ module Triage
     attr_bool_reader :logs
     attr_reader :names, :regexes
     attr_reader :inputs
+    attr_reader :data
 
     def initialize
       @inputs = []
       @names = []
       @regexes = []
       @logs = false
+      @data = nil
     end
 
     # Parse and mauybe exit.
@@ -55,6 +57,11 @@ module Triage
         @inputs << f.realpath
       }
 
+      if @data == nil
+        default_data = Pathname.pwd  + "./rtriage.yaml"
+        @data = default_data if default_data.exist?
+      end
+
       self
     end
 
@@ -77,6 +84,17 @@ module Triage
 
       op.on('-l', '--logs', "Input files are logs to be parsed (run no tests).") {
         @logs = true
+      }
+
+      msg = "Load yaml data of test results we already know about.  Default is to " +
+            "load rtriage.yaml in the pwd."
+      op.on('-d', '--data=FILE', msg) {|val|
+
+        if ! File.exist?(val)
+          exit_fail("--data '#{val}' does not exist")
+        end
+
+        @data = val
       }
 
       op.on('-n', '--name=TEST', "Name of test to run.  Can be given multiple times.") {|val|
@@ -381,11 +399,7 @@ module Triage
       @repeated_spam_check = true
     end
 
-    def line_matches?(re)
-      @line =~ re
-      $~
-    end
-
+    def line_matches?(re); @line.match(re); end
     def line_empty?; line_matches?(/^\s*$/); end
 
     def change_state(new_state)
@@ -468,6 +482,40 @@ module Triage
     end
   end
 
+  # The "known data" file.  Initialising with nil gives a noop thing.
+  class TestData
+    def initialize(file)
+      @file = file
+    end
+
+    # Is the data open and loaded etc.
+    def open?; @file != nil; end
+
+    ###########################
+    ## Querying what changed ##
+    ###########################
+
+    # The test is now known to our data.
+    class StatusNew; end
+    # It's still an error, but the value has changed.
+    class StatusChanged; end
+    # The test has the same status we know.
+    class StatusSame; end
+
+    # Has the status of this error changed?
+    def status(error)
+      if ! open?
+        StatusNew
+      else
+        fail
+      end
+    end
+
+    def new?(error); status(error) == StatusNew; end
+    def same?(error); status(error) == StatusSame; end
+    def changed?(error); status(error) == StatusChanged; end
+  end
+
   # Entry point for the program's command-line.
   class CommandLine
     def initialize(args)
@@ -487,6 +535,7 @@ module Triage
     # The fisrt major mode of the program.
     def parse_log_files
       pr = ErrorPrinter.new
+      data = TestData.new(@settings.data)
       @settings.inputs.each {|file|
         p = LogFileParser.new(file)
         p.parse {|e| pr.print(p, e) }
@@ -496,10 +545,14 @@ module Triage
 
         # TODO:
         #
+        # It occurs to me I might be using the wrong approach.  Perhaps I should
+        # really just be writing a new interface, as in just require() the test
+        # suite and deal with the errors that test-unit throws.  I have no idea
+        # how such a thing is done, though...
+        #
         # Log Display:
         # - print out in a pretty way avec colour
-        # - remove "not implemented" errors, but more sensibly -- I think I need
-        #   to parse further into the assert_nothing_raised failures.
+        # - remove "not implemented" errors, but more sensibly
         # - load data from a file on things we already know about
         # - --changes option gives a special report of new failures and new
         #   successes
@@ -507,10 +560,47 @@ module Triage
         #   there needs to be a start() function which loads up the suite name
         #   and then stops for more.
         # - option to show/hide not-implemented (there should always be a count)
+        # - it would be *really* useful to know exactly what tests are where and
+        #   when so you can say when a test has disappeared.  It comes to the
+        #   same thing, really...
         #
         # Running:
         # - write to a file or pipe by option
         # - run the test command(s).
+        # - run all the tests in the data file.
+        # - run all tests that did have errors (optionally stop on first error)
+        #
+        #
+        # YAML:
+        #
+        # What does the yaml data look like?  Well, it needs to be very similar
+        # every time, so it seems hashes are out (because they change orders).
+        #
+        # I need to:
+        #
+        # - list tests I have solved
+        # - list tests I know are broken
+        # - list why it's broken (although really I don't need to know that
+        #   data)
+        #
+        # So:
+        #
+        # - class name
+        #   - name: test
+        #     status: broken
+        #     comment: blahblah
+        #   - name: test2
+        #     # useful for parsing a log file, for example
+        #     status: fixed
+        #     # used to determine if the bug has changed somehow
+        #     message: start of the message or regex
+        #     comment: blahblah
+        #   - name: test3
+        #     # ignore tests regardless of what's in them (but report if the
+        #     # error has gone now)
+        #     status: ignore
+        #     comment: blahblah
+        #
       }
     end
   end
