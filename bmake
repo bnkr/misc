@@ -300,6 +300,7 @@ module CtestWrapper
     def run!
       @settings = Settings.new(@args).parse!
 
+      puts "bmake: cd '#{@settings.test_dir}'" if @settings.verbose?
       in_directory(@settings.test_dir) {
         name_args = make_name_args
         check_tests_exist!(name_args) if name_args != []
@@ -333,9 +334,10 @@ module CtestWrapper
       prog = 'make'
       args = @settings.make_names
       args_str = args.empty? ? '' : "\"#{args.join('" "')}\""
-      puts "bmake: exec #{prog} #{args_str}"
+      puts "bmake: exec: #{prog} #{args_str}"
 
       s = Fork.command(prog, *args)
+      puts "bmake: #{prog} terminates with status #{s.exitstatus}"
       if ! s.success?
         Kernel.exit 1
       else
