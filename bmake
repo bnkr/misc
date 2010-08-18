@@ -14,6 +14,12 @@ module CtestWrapper
   ROOT_SRC_DIR = Pathname.new('/home/bunker/src')
   ROOT_BIN_DIR = Pathname.new('/home/bunker/var/build')
 
+  def Object.attr_bool_reader(*names)
+    names.each {|name|
+      module_eval "def #{name}?; @#{name}; end"
+    }
+  end
+
   class Settings
     # Base ~/var/bin ~/src dir.
     attr_reader :bin_dir, :src_dir
@@ -23,12 +29,13 @@ module CtestWrapper
     attr_reader :test_dir
     # Which tests to run.
     attr_reader :test_names, :test_regexes
+    # Tests to run if they are valid (iow it's not an error if they don't
+    # exist).
+    attr_reader :maybe_test_names
     # -V in ctest.
-    attr_reader :verbose
-    alias verbose? verbose
+    attr_bool_reader :verbose
     # Whether to run make.
-    attr_reader :make
-    alias make? make
+    attr_bool_reader :make
     # [] for use nothing.
     attr_reader :make_names
 
@@ -42,17 +49,19 @@ module CtestWrapper
       @configuration = 'unix'
       @make = true
       @make_names = []
+      @maybe_test_names = []
     end
 
     # Parses the arguments and maybe exits.
     def parse!
-      other = []
       begin
-        @parser.parse(@args)
+        @maybe_test_names = @parser.parse(@args)
       rescue OptionParser::ParseError => e
         STDERR.puts "bmake: #{e}"
         Kernel.exit 1
       end
+
+      @make_names += @maybe_test_names
 
       if @make == false
         if ! @make_names.empty?
@@ -129,7 +138,11 @@ module CtestWrapper
 
     def make_parser
       op = OptionParser.new
-      op.banner += "\nBuilds and tests projects using the standard bunker project structure.\n\n"
+      op.banner += " [targets]"
+      op.banner += "\nBuilds and tests projects using the standard bunker project structure."
+      op.banner += "\nTargets specified without arguments will be built with make and tested"
+      op.banner += "\nonly if they are valid as test names."
+      op.banner += "\n\n"
 
       op.separator "General:"
       op.on('-h', '--help', "Print these options and exit.") {
@@ -305,22 +318,32 @@ module CtestWrapper
         name_args = make_name_args
         check_tests_exist!(name_args) if name_args != []
         run_make!
+        run_maybe_tests!
         run_tests!(name_args) if name_args != []
       }
     end
 
     private
 
-    def check_tests_exist!(name_args)
+    def tests_exist?(name_args)
       cl = %w{ctest -N} + name_args
       stdout, stderr, status = Fork.capture_command(*cl)
 
       if ! status.exited? || ! status.success?
-        STDERR.puts "bmake: CMake failed: output '#{stderr}'."
+        STDERR.puts "bmake: CMake failed when checking tests: output '#{stderr}'."
+        Kernel.exit 1
       end
 
       # It doesn't print "No tests were found!!!" under -N mode.
       if stdout =~ /^[Tt]otal\s+[Tt]ests:\s*0\s*$/
+        false
+      else
+        true
+      end
+    end
+
+    def check_tests_exist!(name_args)
+      if ! tests_exist?(name_args)
         STDERR.puts "bmake: no tests matching parameters given"
         Kernel.exit 1
       end
@@ -345,6 +368,22 @@ module CtestWrapper
       end
     end
 
+    def run_maybe_tests!
+      names = @settings.maybe_test_names
+      return if names.empty?
+
+      names.each {|name|
+        args = ['-R', "^#{name}$"]
+        if tests_exist?(args)
+          run_tests!(args)
+        elsif @settings.verbose?
+          puts "bmake: target name '#{name}' is not a test"
+        end
+      }
+
+      nil
+    end
+
     def run_tests!(name_args)
       cl = %w{ctest --output-on-failure}
       cl << '-V' if @settings.verbose?
@@ -352,6 +391,11 @@ module CtestWrapper
 
       puts "bmake: exec: #{cl[0]} \"#{cl[1..-1].join('" "')}\""
       status = Fork.command(*cl)
+      if ! status.success?
+        Kernel.exit 1
+      elsif @settings.verbose?
+        puts "bmake: test(s) matching #{name_args[1]} worked"
+      end
     end
 
     def in_directory(d)
