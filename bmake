@@ -73,7 +73,7 @@ module BMake
       if @run_program
         @program_cli += other_args
       else
-        @make_test_names = other_args
+        @maybe_test_names = other_args
         @make_names += @maybe_test_names
       end
 
