@@ -160,9 +160,12 @@ module CtestWrapper
         @use_subdir = true
       }
       op.on('-c', '--config=CONFIG', "Configuration dir.  Default is 'unix'.") {|name|
-        @configuration = name
+        set_configuration(name)
       }
-      op.on('-v', '--verbose', "Always print outputs of tests.") { @verbose = true }
+      op.on('-w', '--win', "Like --config=win.") {
+        set_configuration('win')
+      }
+      op.on('-v', '--verbose', "Always print outputs of tests (and some other stuff).") { @verbose = true }
 
       op.separator "\nMaking:"
       op.on('-M', '--no-make', "Don't call make.") {
@@ -185,6 +188,12 @@ module CtestWrapper
       }
 
       op
+    end
+
+    # some comon valdiation
+    def set_configuration(name)
+      exit_fail("--config (or --win) may only be given once") if @configuration
+      @configuration = name
     end
   end
 
