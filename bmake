@@ -453,10 +453,10 @@ module BMake
 
       s = Fork.command(program, *args)
       if s.signaled?
-        STDERR.puts "bmake: #{name} crashed with signal #{$?.signal}"
+        STDERR.puts "bmake: #{program} crashed with signal #{$?.signal}"
         Kernel.exit 1
       elsif ! s.success?
-        STDERR.puts "bmake: #{name} failed with status #{$?.exitstatus}"
+        STDERR.puts "bmake: #{program} failed with status #{$?.exitstatus}"
         Kernel.exit 1
       end
     end
