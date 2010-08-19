@@ -10,7 +10,7 @@ require 'pathname'
 require 'fcntl'
 require 'ostruct'
 
-module CtestWrapper
+module BMake
   ROOT_SRC_DIR = Pathname.new('/home/bunker/src')
   ROOT_BIN_DIR = Pathname.new('/home/bunker/var/build')
 
@@ -38,6 +38,11 @@ module CtestWrapper
     attr_bool_reader :make
     # [] for use nothing.
     attr_reader :make_names
+    # Whether to use the non-argument values on the cli as arguments to a
+    # program.
+    attr_bool_reader :run_program
+    # Command name and arguments for running the program.
+    attr_reader :program_cli
 
     def initialize(args)
       @args = args
@@ -46,22 +51,31 @@ module CtestWrapper
       @test_regexes = []
       @verbose = false
       @use_subdir = false
-      @configuration = 'unix'
+      @configuration = nil
       @make = true
       @make_names = []
       @maybe_test_names = []
+      @run_program = false
+      @program_cli = []
     end
 
     # Parses the arguments and maybe exits.
     def parse!
+      other_args = []
       begin
-        @maybe_test_names = @parser.parse(@args)
+        other_args = @parser.parse(@args)
       rescue OptionParser::ParseError => e
         STDERR.puts "bmake: #{e}"
         Kernel.exit 1
       end
 
-      @make_names += @maybe_test_names
+      @configuration ||= 'unix'
+      if @run_program
+        @program_cli += other_args
+      else
+        @make_test_names = other_args
+        @make_names += @maybe_test_names
+      end
 
       if @make == false
         if ! @make_names.empty?
@@ -141,7 +155,8 @@ module CtestWrapper
       op.banner += " [targets]"
       op.banner += "\nBuilds and tests projects using the standard bunker project structure."
       op.banner += "\nTargets specified without arguments will be built with make and tested"
-      op.banner += "\nonly if they are valid as test names."
+      op.banner += "\nonly if they are valid as test names.  If the --run argument is given"
+      op.banner += "\nthen [targets] arguments are used as cli parameters."
       op.banner += "\n\n"
 
       op.separator "General:"
@@ -171,8 +186,16 @@ module CtestWrapper
       op.on('-M', '--no-make', "Don't call make.") {
         @make = false
       }
-      op.on('-m', '--make=NAME', "Run this target when using make.  Can be called multiple times.") {|val|
+      op.on('-m', '--make=NAME', "Run this target when using make.  Can be given multiple times.") {|val|
         @make_names << val
+      }
+
+      op.separator "\nRunning:"
+      op.on('-p', '--program=TARGET', "Make a target and run it.  Only be given once.") {|val|
+        @make_names << val
+        exit_fail("only one --program may be given") if @run_program
+        @program_cli << val
+        @run_program = true
       }
 
       op.separator "\nTesting:"
@@ -194,6 +217,11 @@ module CtestWrapper
     def set_configuration(name)
       exit_fail("--config (or --win) may only be given once") if @configuration
       @configuration = name
+    end
+
+    def exit_fail(msg)
+      STDERR.puts msg
+      Kernel.exit 1
     end
   end
 
@@ -217,6 +245,7 @@ module CtestWrapper
       pid = Process.fork {
         exec_read.close
         exec_write.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
+
         begin
           Process.exec(*command_line)
         rescue
@@ -326,9 +355,19 @@ module CtestWrapper
       in_directory(@settings.test_dir) {
         name_args = make_name_args
         check_tests_exist!(name_args) if name_args != []
-        run_make!
-        run_maybe_tests!
-        run_tests!(name_args) if name_args != []
+
+        if @settings.make?
+          run_make!
+        elsif @settings.verbose?
+          puts "bmake: running make is disabled"
+        end
+
+        if @settings.run_program?
+          run_program!
+        else
+          run_maybe_tests!
+          run_tests!(name_args) if name_args != []
+        end
       }
     end
 
@@ -343,10 +382,16 @@ module CtestWrapper
         Kernel.exit 1
       end
 
+      if @settings.verbose?
+        STDOUT.write "bmake: check test exists with name args: #{name_args.join(' ')}... "
+      end
+
       # It doesn't print "No tests were found!!!" under -N mode.
       if stdout =~ /^[Tt]otal\s+[Tt]ests:\s*0\s*$/
+        puts "nope" if @settings.verbose?
         false
       else
+        puts "yep" if @settings.verbose?
         true
       end
     end
@@ -361,8 +406,6 @@ module CtestWrapper
     end
 
     def run_make!
-      return if ! @settings.make?
-
       prog = 'make'
       args = @settings.make_names
       args_str = args.empty? ? '' : "\"#{args.join('" "')}\""
@@ -374,6 +417,47 @@ module CtestWrapper
         Kernel.exit 1
       else
         s
+      end
+    end
+
+    # Run Settings#program_cli.
+    def run_program!
+      args = []
+      program = nil
+
+      file = @settings.program_cli[0]
+      if File.exist?(file)
+        program = file
+      elsif File.exist?(file + ".exe")
+        puts "bmake: using wine emulator" if @settings.verbose?
+
+        # This seems to be necessary.  Even if the .exe exists, ruby's exec()
+        # won't load it despite having binfmt-support.
+        program = "wine"
+        args << file
+      else
+        STDERR.puts "bmake: program #{file} not found (try --subdir?)"
+        Kernel.exit 1
+      end
+
+      args += @settings.program_cli[1..-1]
+
+      if @settings.verbose?
+        STDOUT.write "bmake: exec: #{program}"
+        if ! args.empty?
+          STDOUT.puts " \"#{args.join('", "')}\""
+        else
+          STDOUT.puts
+        end
+      end
+
+      s = Fork.command(program, *args)
+      if s.signaled?
+        STDERR.puts "bmake: #{name} crashed with signal #{$?.signal}"
+        Kernel.exit 1
+      elsif ! s.success?
+        STDERR.puts "bmake: #{name} failed with status #{$?.exitstatus}"
+        Kernel.exit 1
       end
     end
 
@@ -440,4 +524,4 @@ module CtestWrapper
   end
 end
 
-CtestWrapper::CommandLine.new(ARGV).run!
+BMake::CommandLine.new(ARGV).run!
