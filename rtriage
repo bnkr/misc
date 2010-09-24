@@ -570,6 +570,10 @@ module Triage
         # - run all the tests in the data file.
         # - run all tests that did have errors (optionally stop on first error)
         #
+        # Other:
+        # - parser needs to be more lenient, for example it needs to allow no
+        #   suite name so we can have a truncated log (ie. just the error bits)
+        #
         #
         # YAML:
         #
@@ -585,7 +589,8 @@ module Triage
         #
         # So:
         #
-        # - class name
+        # - class: name
+        #   tests:
         #   - name: test
         #     status: broken
         #     comment: blahblah
