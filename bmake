@@ -566,8 +566,8 @@ module BMake
     end
 
     def run_tests!(name_args)
-      cl = %w{ctest --output-on-failure}
-      cl << '-V' if @settings.verbose?
+      cl = %w{ctest}
+      cl << if @settings.verbose? then "-V" else "--output-on-failure" end
       cl += name_args
 
       puts "bmake: exec: #{cl[0]} \"#{cl[1..-1].join('" "')}\""
