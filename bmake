@@ -147,6 +147,8 @@ module BMake
     attr_reader :maybe_test_names
     # -V in ctest.
     attr_bool_reader :verbose
+    # Whether to run cmake
+    attr_bool_reader :cmake
     # Whether to run make.
     attr_bool_reader :make
     # [] for use nothing.
@@ -271,6 +273,9 @@ module BMake
       op.on('-v', '--verbose', "Always print outputs of tests (and some other stuff).") { @verbose = true }
 
       op.separator "\nMaking:"
+      op.on('-C', '--cmake', "Always run cmake first (helps if you updated the target names)") {
+        @cmake = true
+      }
       op.on('-M', '--no-make', "Don't call make.") {
         @make = false
       }
@@ -441,6 +446,10 @@ module BMake
 
       puts "bmake: cd '#{@settings.working_dir}'" if @settings.verbose?
       in_directory(@settings.working_dir) {
+        if @settings.cmake?
+          run_cmake!
+        end
+
         name_args = make_name_args
         check_tests_exist!(name_args) if name_args != []
 
@@ -491,6 +500,13 @@ module BMake
       end
 
       nil
+    end
+
+    def run_cmake!
+      puts "bmake: running cmake" if @settings.verbose?
+      if ! Fork.command("cmake", *%w{.}).success?
+        Kernel.exit 1
+      end
     end
 
     def run_make!
