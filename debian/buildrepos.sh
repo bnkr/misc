@@ -2,7 +2,7 @@
 # Make an simple apt repository using apt-ftparchive and dpkg-scansources, and
 # also dpkg-scanpackages.
 #
-# Repos layout must be 
+# Repos layout must be
 #
 #   ./binary
 #   ./source
@@ -19,9 +19,9 @@ if test $# -gt 1; then
   echo "error: only one argument, please." 1>&2
   exit 1
 elif test $# -eq 1; then
-  REPOS=$1  
+  REPOS=$1
 else
-  REPOS=`pwd`
+  REPOS="/home/bunker/share-nobackup/apt-repos"
 fi
 
 BIN="${REPOS}/binary"
@@ -29,10 +29,14 @@ SRC="${REPOS}/source"
 
 if test ! -d "${BIN}"; then
   echo "error: ${BIN} is not a directory - give the repos root if it's not pwd"  >&2
-  exit 1 
+  exit 1
 elif test ! -d "${SRC}"; then
   echo "error: ${SRC} is not a directory - give the repos root if it's not pwd"  >&2
 fi
+
+# Paths end up wrong unless we cd to the repos and use the binary/source dirs as
+# relative paths to scansources.
+cd "${REPOS}"
 
 # TODO: here upload *.deb -> bindir and *.changes, build etc to srcdir.
 
