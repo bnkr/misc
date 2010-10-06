@@ -10,8 +10,9 @@ require 'pathname'
 require 'fcntl'
 require 'ostruct'
 
-module BMake
+require '/home/bunker/src/rbunker/lib/rbunker/fork'
 
+module BMake
   def Object.attr_bool_reader(*names)
     names.each {|name|
       module_eval "def #{name}?; @#{name}; end"
@@ -315,125 +316,6 @@ module BMake
     def exit_fail(msg)
       STDERR.puts msg
       Kernel.exit 1
-    end
-  end
-
-  class ForkExecError < RuntimeError
-  end
-
-  # Regarding making forks can running programs.
-  module Fork
-    # Fork a program.  Returns the [stdout, stderr, status] object.  Does not
-    # print anything.
-    def self.capture_command(*command_line)
-      Fork.run_captured(command_line, {}, false)
-    end
-
-    # Run a program without capturing any output.  Returns the status object.
-    def self.command(*command_line)
-      raise ArgumentError, "command to run is empty" if command_line.empty?
-
-      exec_read, exec_write = IO.pipe
-
-      pid = Process.fork {
-        exec_read.close
-        exec_write.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
-
-        begin
-          Process.exec(*command_line)
-        rescue
-          exec_write.write($!.to_s)
-        end
-      }
-
-      begin
-        [exec_write].each {|io| io.close }
-
-        error = exec_read.read
-        if error.to_s != ''
-          raise ForkExecError, "#{error}"
-        end
-      ensure
-        exec_read.close if ! exec_read.closed?
-      end
-
-      Process.wait2(pid)[1]
-    end
-
-    # Run a program and return its [stdout, stderr, process].
-    def self.run_captured(command_line, environment, print_output)
-      raise ArgumentError, "command to run is empty" if command_line.empty?
-
-      pipes = OpenStruct.new
-      begin
-        pipes.exec = IO.pipe
-        pipes.stdout = IO.pipe
-        pipes.stderr = IO.pipe
-        ret = self.do_run_captured(command_line, environment, print_output, pipes)
-      ensure
-        read_end = 0
-        [pipes.exec, pipes.stdout, pipes.stderr].each {|pipe|
-          pipe.each {|io| io.close if ! io.closed? }
-        }
-      end
-    end
-
-    private
-
-    def self.do_run_captured(command_line, environment, print_output, pipes)
-      exec_read, exec_write = pipes.exec
-      stdout_read, stdout_write = pipes.stdout
-      stderr_read, stderr_write = pipes.stderr
-
-      pid = Process.fork {
-        environment.each_pair {|var,val| ENV[var] = val.to_s }
-
-        [stdout_read, stderr_read, exec_read].each {|io| io.close }
-
-        $stdout.reopen(stdout_write)
-        $stderr.reopen(stderr_write)
-
-        exec_write.fcntl(Fcntl::F_SETFD, Fcntl::FD_CLOEXEC)
-        begin
-          Process.exec(*command_line)
-        rescue
-          exec_write.write($!.to_s)
-        end
-      }
-
-      [stdout_write, stderr_write, exec_write].each {|io| io.close }
-
-      error = exec_read.read
-      if error.to_s != ''
-        raise ForkExecError, "#{error}"
-      end
-
-      stdout = ''
-      stderr = ''
-
-      read_some = lambda do |string,pipe|
-        out = pipe.read(1024)
-        string << out if out
-        out
-      end
-
-      while true
-        so = read_some.call(stdout, stdout_read)
-        se = read_some.call(stderr, stderr_read)
-
-        if print_output
-          STDERR.write se if se
-          STDOUT.write so if so
-        end
-
-        if se == nil && so == nil
-          break
-        end
-      end
-
-      status = Process.wait2(pid)[1]
-
-      [stdout, stderr, status]
     end
   end
 
