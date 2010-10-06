@@ -147,9 +147,14 @@ class CommandLine
       theme_dir = "usr/share/slim/themes/bunker-blue"
 
       FileUtils.mkdir_p(theme_dir)
-      FileUtils.cp(input_dir + "./background.png", theme_dir)
+      # For some reason this dereferences the symlinsk.
+      #  FileUtils.cp(input_dir + "./background.png", theme_dir, {:preserve => true})
+      # TODO: The symlink should be a relative path.
+      system("cp -a \"#{input_dir}/background.png\" \"#{theme_dir}\"")
       FileUtils.cp(input_dir + "./panel.png", theme_dir)
       FileUtils.cp(input_dir + "./slim.theme", theme_dir)
+
+      #  system("ls --color=always -la #{theme_dir}")
 
       dm = DebMaker.new {|conf|
         conf.root = root_path
@@ -159,6 +164,7 @@ class CommandLine
         conf.description = "Alter current_theme in /etc/slim.conf to get this theme to display."
         conf.maintainer = "James Webber <bunkerprivate@gmail.com>"
         conf.section = "x11"
+        conf.release = 1
         conf.depends << "slim"
         conf.depends << "bunker-fractal-wallpapers"
       }
