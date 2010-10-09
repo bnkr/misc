@@ -3,11 +3,14 @@ module Triage
   class Settings
     attr_reader :log_file
     attr_reader :state_file
+    attr_reader :config_file
     attr_bool_reader :update_state
 
     def initialize
       @state_file = nil
+      @log_file= nil
       @update_state = false
+      @config_file = nil
     end
 
     # Parse and mauybe exit.
@@ -70,6 +73,13 @@ module Triage
           exit_fail("--state '#{val}' does not exist")
         end
         @state_file = Pathname.new(val)
+      }
+
+      op.on('-c', '--config=FILE', "Extra user configuration.") {|val|
+        if ! File.exist?(val)
+          exit_fail("--config '#{val}' does not exist")
+        end
+        @config_file = Pathname.new(val)
       }
 
       op.on("--update-state", "Modify the persistent state to respect the given log file.") {

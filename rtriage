@@ -7,18 +7,6 @@
 #
 # See: $0 --help
 
-# TODO:
-#   New interface.
-#
-#
-#   Output should look like:
-#
-# TODO:
-#   It occurs to me that perhaps we should have multiple state files.  One will
-#   be the user configuration (e.g to mark a test as hidden) and therefore
-#   would be readable and sensible and the other would be purely for persistant
-#   data (i.e just so say what tests we saw).
-
 require 'pathname'
 require 'optparse'
 
@@ -29,15 +17,16 @@ require base + "./logfileparser.rb"
 require base + "./settings.rb"
 
 module Triage
-  # Interface to the persistant state file.
+  # Interface to the persistant state file and user configuration of that staet.
   class State
-    def initialize(settings, file)
+    def initialize(settings, state_file, config_file)
       @settings = settings
-      load_file(file)
+      load_state(state_file)
+      load_config(config_file)
     end
 
     # Update the state given the new data.
-    def update!(test_data)
+    def update!(data)
       fail "not implemented"
 
       #   In the YAML file:
@@ -60,6 +49,31 @@ module Triage
       # * add all failing tests which are not in the file
       # * update any existing tests, preserving the user's settings about them
       # * change the date of the state
+
+      # Note: these bits might change a fair bit depending on how we load and
+      # store stuff.  There might be further classes which do the loading and
+      # storing individually.
+
+      state_writer = StateWriter.new(@state_file)
+      data.each {|d|
+        current = info(d)
+        if current
+          # The merge is probably unnecessary because we'll put user data in a
+          # different file, but just to be safe...
+          state_writer.add(StateEntry.from_error_and_config(d, current))
+        else
+          # This is always true for now, but might not always be
+          next if e.success?
+          state_writer.add(StateEntry.from_error(d))
+        end
+      }
+      writer.commit
+
+      config_writer = ConfigWriter.new(@user_config, @config_file)
+      current_state.each {|e|
+        config_writer.delete(e) if e.success?
+      }
+      config_writer.commit
     end
 
     # Get the persistant state information for a particular error.
@@ -68,7 +82,13 @@ module Triage
 
     private
 
-    def load_file(name)
+    # The config is a set of directives to apply to data about tests in the
+    # state.
+    def load_config(name)
+    end
+
+    # The state is a big list of tests and what happened with them.
+    def load_state(name)
     end
   end
 
@@ -222,8 +242,6 @@ module Triage
       report.display
 
       if @settings.update_state?
-        # this a bit iffy because we already did a whole load of checking to see
-        # what's change and so on...
         state.update!(data)
       end
     end
