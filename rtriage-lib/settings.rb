@@ -3,9 +3,11 @@ module Triage
   class Settings
     attr_reader :log_file
     attr_reader :state_file
+    attr_bool_reader :update_state
 
     def initialize
       @state_file = nil
+      @update_state = false
     end
 
     # Parse and mauybe exit.
@@ -52,16 +54,13 @@ module Triage
     def make_parser
       op = OptionParser.new
       op.banner += " log\n"
-      op.banner += "Parse log file, display a nice report, and keep persistant data about tests."
+      op.banner += "Parse log file, display a nice report, and keep persistant data about tests.\n"
+      op.banner += "Display options are a logical or of conditions to display on except."
 
       op.separator "\nOptions:"
       op.on("-h", "--help", "This message") {
         puts op
         Kernel.exit 0
-      }
-
-      op.on('-l', '--logs', "Input files are logs to be parsed (run no tests).") {
-        @logs = true
       }
 
       msg = "Load yaml data of test results we already know about.  Default is to " +
@@ -71,6 +70,40 @@ module Triage
           exit_fail("--state '#{val}' does not exist")
         end
         @state_file = Pathname.new(val)
+      }
+
+      op.on("--update-state", "Modify the persistent state to respect the given log file.") {
+        fail "not implemented"
+      }
+
+      op.separator "\nDisplay Options:"
+
+      op.on('-c', '--correct', "Display tests which have become correct.") {
+        fail "not implemented"
+      }
+
+      op.on("-i", '--not-implemented', "Display tests which are not implemented.") {
+        fail "not implemented"
+      }
+
+      op.on("-u", '--unchanged', "Display tests which are unchanged.") {
+        fail "not implemented"
+      }
+
+      op.on('--hidden', "Display tests which are explicitly marked hidden.") {
+        fail "not implemented"
+      }
+
+      op.on('--message', "Display tests whose error message has changed.") {
+        fail "not implemented"
+      }
+
+      op.on("-k", '--unknown', "Display tests wich have not been marked known.") {
+        fail "not implemented"
+      }
+
+      op.on("--all", "Display everything.") {
+        fail "not implemented"
       }
 
 

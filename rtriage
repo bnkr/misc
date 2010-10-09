@@ -10,86 +10,14 @@
 # TODO:
 #   New interface.
 #
-#   This is totally log-file based.  We check the tests coming from a log file
-#   against a yaml state.
-#
-#   In the YAML file:
-#
-#   * state date
-#   * list of known failing tests:
-#     * date found
-#     * status in [ignored, not implemented, broken, fixed]
-#     * known: true | false
-#     * keep: true | false # relevant if fixed
-#     * reason/message
-#     * comment from the user
-#   * other data can be added later, such as command to run to get the test logs
-#     etc.
-#
-#   The default interface of this program parses a given log file and checks it
-#   against the yaml.  The script will output:
-#
-#   * new failures
-#   * a change in the type of failure
-#   * tests which are now correct (can be turned off)
-#   * a change in the message (only if turned on)
-#
-#   If an --update-state option is given, the script will:
-#
-#   * add all failing tests which are not in the file
-#   * update any existing tests, preserving the user's settings about them
-#   * delete tests in the file which are now working unless the 'keep' setting
-#     is given
-#   * change the date of the state
-#
-#   This really needs tests, it must be said.
-#
-#   Therefore, the program interface must be
-#
-#   Usage: rtriage log-file
-#   Statefully triages the errors in a ruby test log file.
-#
-#   State Options:
-#     -s, --state=FILE  YAML state file.  If not given then rtriage.yaml in the
-#                       present working directory is used.
-#     --update-state    Modify the state with new information from the log file.
-#
-#   Display Options:
-#     -C, --not-if-correct Don't output tests which have become correct.
-#     --if-message         Display when the error message for a test has changed.
-#     -k, --if-known       Display information about tests which haven't changed
-#                          state.
-#     -l, --long           Display long information of information.
 #
 #   Output should look like:
 #
-#   Changes since $old_data:
-#
-#   Unit::method -- $state (was $state) # use colors
-#   Message (if long)
-#   location / comamnd to run the test
-#
-#   Tests in the same state since $old_data: (if --all)
-#
-#   Unit::method -- $state
-#   known about since $date
-#   message (if --long)
-#   location / comamnd to run the test
-#
-#   So tasks:
-#
-#   * modify settings to use the new argument scheme.
-#   * the main() function will parse the file and buffer all error datas.
-#   * make a decent implementation of ErrorPrinter for these output constraints
-#   * make a class State (rename TestData) which handles reading and writing the
-#     yaml state.  We can implement --update-state later.
-#   * class ErrorData stores the data from the parser
-#   * class Report which deals with displaying readable information from the
-#     State and the ErrorData bits.
-#   * we can optimise later to avoid lots of buffering and so on (e.g if we
-#     aren't updating the state and we aren't displaying not implemented tests
-#     when we can ignore not implemented bits)
-#
+# TODO:
+#   It occurs to me that perhaps we should have multiple state files.  One will
+#   be the user configuration (e.g to mark a test as hidden) and therefore
+#   would be readable and sensible and the other would be purely for persistant
+#   data (i.e just so say what tests we saw).
 
 require 'pathname'
 require 'optparse'
@@ -101,6 +29,96 @@ require base + "./logfileparser.rb"
 require base + "./settings.rb"
 
 module Triage
+  # Interface to the persistant state file.
+  class State
+    def initialize(settings, file)
+      @settings = settings
+      load_file(file)
+    end
+
+    # Update the state given the new data.
+    def update!(test_data)
+      fail "not implemented"
+
+      #   In the YAML file:
+      #
+      #   * state date
+      #   * list of known failing tests:
+      #     * date found
+      #     * status in [ignored, not implemented, broken]
+      #     * known: true | false
+      #     * hidden: true
+      #     * reason/message
+      #     * comment from the user
+      #   * other data can be added later, such as command to run to get the test logs
+      #     etc.
+      #
+      # We should leave it open to have multiple sources for the yaml file
+      # because the general state info will be quite confusing when all  you
+      # really want to do is apply some config to one or two tests.
+
+      # * add all failing tests which are not in the file
+      # * update any existing tests, preserving the user's settings about them
+      # * change the date of the state
+    end
+
+    # Get the persistant state information for a particular error.
+    def info(e)
+    end
+
+    private
+
+    def load_file(name)
+    end
+  end
+
+  # Extracting errors from the log.  This turns the raw parsed data into what we
+  # really need.
+  class DataExtractor
+    # Initialised after each_error is called.
+    attr_reader :totals
+
+    def initialize(settings, state, input_file)
+      @settings = settings
+      @state = state
+      @input_file = input_file
+      @totals = nil
+    end
+
+    # Parse the file, process the data, and yield it.
+    def each_error(&blk)
+      lp = StatefulLogParser.new
+      File.open(@input_file.to_s, 'r') {|io|
+        io.each_line {|l|
+          lp.line(l) {|e|
+            process_and_yield(e, &blk)
+          }
+        }
+      }
+      lp.finish
+      @totals = lp.totals
+      nil
+    end
+
+    private
+
+    # Set new fields in e so we have a fully valid and queryable interface about
+    # the error and its relationship to the state.
+    def process_and_yield(e, &blk)
+      # call state.info(e) and inspect the result
+      yield e
+    end
+  end
+
+  # Queryable interface to all the data.  Only needed when we're going to modify
+  # the state.
+  class DataStore
+    def add(e)
+      # we'll deal with this one later because it depends on how the state
+      # updating works.
+    end
+  end
+
   # Handle the state of printing out errors.
   class ErrorPrinter
     def initialize(settings)
@@ -133,59 +151,52 @@ module Triage
     end
   end
 
-  # Interface to the persistant state file.
-  class State
-    def initialize(settings, file)
-      @settings = settings
-      load_file(file)
-    end
-
-    # Update the state given the new data.
-    def update_file(test_data)
-      fail "not implemented"
-    end
-
-    private
-
-    def load_file(name)
-    end
-  end
-
-  # Queryable interface to the data extracted from the log file.
-  class TestData
-    # Fully initialise a new TestData from an io using the log parser.
-    def self.from_file(name)
-      lp = StatefulLogParser.new
-      td = TestData.new
-      File.open(name.to_s, 'r') {|io|
-        io.each_line {|l|
-          lp.line(l) {|data|
-            td.add(data)
-          }
-        }
-      }
-      lp.finish
-      t = lp.totals
-
-      td
-    end
-
-    # Add data coming from the StatefulLogParser
-    def add(data)
-    end
-  end
-
   # Output manager, using the TestData and State information to produce a full
   # report.
   class Report
-    def initialize(settings, state, test_data)
+    attr_accessor :totals
+
+    def initialize(settings, state)
       @settings = settings
+      # TODO:
+      #   state should not really be necessary if DataExtractor has done all the
+      #   processing.
       @state = state
-      @test_data = test_data
+    end
+
+    # Add processed data (from DataExtractor) to the report if relevant
+    def add_if_relevant(data)
+      return if ! relevant?(data)
     end
 
     def display
       p = ErrorPrinter.new(@settings)
+      # iterate given data and print it sensibly.
+
+      # Make something like:
+      #
+      #   Changes since $old_data:
+      #
+      #   Unit::method -- $state (was $state) # use colors
+      #   Message (if long)
+      #   location / comamnd to run the test
+      #
+      #   Tests in the same state since $old_data: (if --all)
+      #
+      #   Unit::method -- $state
+      #   known about since $date
+      #   message (if --long)
+      #   location / comamnd to run the test
+    end
+
+    private
+
+    # Decide if we want what's in the processed error data.
+    def relevant?(e)
+      # if e.state_changed?
+      # else
+      #
+      true
     end
   end
 
@@ -199,9 +210,22 @@ module Triage
     def run!
       @settings = Settings.new.parse!(@args)
       state = State.new(@settings, @settings.state_file)
-      test_data = TestData.from_file(@settings.log_file)
-      report = Report.new(@settings, state, test_data)
+      report = Report.new(@settings, state)
+      data = DataStore.new
+
+      extractor = DataExtractor.new(@settings, state, @settings.log_file)
+      extractor.each_error {|e|
+        report.add_if_relevant(e)
+        data.add(e)
+      }
+      report.totals = extractor.totals
       report.display
+
+      if @settings.update_state?
+        # this a bit iffy because we already did a whole load of checking to see
+        # what's change and so on...
+        state.update!(data)
+      end
     end
   end
 end
