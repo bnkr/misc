@@ -7,452 +7,103 @@
 #
 # See: $0 --help
 
+# TODO:
+#   New interface.
+#
+#   This is totally log-file based.  We check the tests coming from a log file
+#   against a yaml state.
+#
+#   In the YAML file:
+#
+#   * state date
+#   * list of known failing tests:
+#     * date found
+#     * status in [ignored, not implemented, broken, fixed]
+#     * known: true | false
+#     * keep: true | false # relevant if fixed
+#     * reason/message
+#     * comment from the user
+#   * other data can be added later, such as command to run to get the test logs
+#     etc.
+#
+#   The default interface of this program parses a given log file and checks it
+#   against the yaml.  The script will output:
+#
+#   * new failures
+#   * a change in the type of failure
+#   * tests which are now correct (can be turned off)
+#   * a change in the message (only if turned on)
+#
+#   If an --update-state option is given, the script will:
+#
+#   * add all failing tests which are not in the file
+#   * update any existing tests, preserving the user's settings about them
+#   * delete tests in the file which are now working unless the 'keep' setting
+#     is given
+#   * change the date of the state
+#
+#   This really needs tests, it must be said.
+#
+#   Therefore, the program interface must be
+#
+#   Usage: rtriage log-file
+#   Statefully triages the errors in a ruby test log file.
+#
+#   State Options:
+#     -s, --state=FILE  YAML state file.  If not given then rtriage.yaml in the
+#                       present working directory is used.
+#     --update-state    Modify the state with new information from the log file.
+#
+#   Display Options:
+#     -C, --not-if-correct Don't output tests which have become correct.
+#     --if-message         Display when the error message for a test has changed.
+#     -k, --if-known       Display information about tests which haven't changed
+#                          state.
+#     -l, --long           Display long information of information.
+#
+#   Output should look like:
+#
+#   Changes since $old_data:
+#
+#   Unit::method -- $state (was $state) # use colors
+#   Message (if long)
+#   location / comamnd to run the test
+#
+#   Tests in the same state since $old_data: (if --all)
+#
+#   Unit::method -- $state
+#   known about since $date
+#   message (if --long)
+#   location / comamnd to run the test
+#
+#   So tasks:
+#
+#   * modify settings to use the new argument scheme.
+#   * the main() function will parse the file and buffer all error datas.
+#   * make a decent implementation of ErrorPrinter for these output constraints
+#   * make a class State (rename TestData) which handles reading and writing the
+#     yaml state.  We can implement --update-state later.
+#   * class ErrorData stores the data from the parser
+#   * class Report which deals with displaying readable information from the
+#     State and the ErrorData bits.
+#   * we can optimise later to avoid lots of buffering and so on (e.g if we
+#     aren't updating the state and we aren't displaying not implemented tests
+#     when we can ignore not implemented bits)
+#
+
 require 'pathname'
 require 'optparse'
 
+base = (Pathname.new(__FILE__).realpath.dirname + "./rtriage-lib")
+require base + "./utility.rb"
+require base + "./statefullogparser.rb"
+require base + "./logfileparser.rb"
+require base + "./settings.rb"
+
 module Triage
-  def Object.attr_bool_reader(sym)
-    module_eval "def #{sym}?; @#{sym}; end"
-  end
-
-  # Container for settings and parser of cli.
-  class Settings
-    attr_bool_reader :logs
-    attr_reader :names, :regexes
-    attr_reader :inputs
-    attr_reader :data
-
-    def initialize
-      @inputs = []
-      @names = []
-      @regexes = []
-      @logs = false
-      @data = nil
-    end
-
-    # Parse and mauybe exit.
-    def parse!(args)
-      p = make_parser
-      files = p.parse(args)
-
-      if logs? && (! @regexes.empty? || ! @names.empty?)
-        exit_fail("--parse is not allowed with regexes or names")
-      end
-
-      if files.empty?
-        exit_fail("no input files")
-      end
-
-      files.each {|f|
-        f = Pathname.new(f)
-        if ! f.exist?
-          exit_fail("file #{f} does not exist")
-        elsif f.directory?
-          exit_fail("file #{f} is a directory")
-        end
-
-        # realpath also helps duplicate requires work out properly because
-        # two different relative paths to the same file are accepted as
-        # different.
-        @inputs << f.realpath
-      }
-
-      if @data == nil
-        default_data = Pathname.pwd  + "./rtriage.yaml"
-        @data = default_data if default_data.exist?
-      end
-
-      self
-    end
-
-    private
-
-    def exit_fail(message)
-      STDERR.puts "triage: #{message}"
-      Kernel.exit 1
-    end
-
-    def make_parser
-      op = OptionParser.new
-      op.banner += " file...\nWraps ruby tests and extracts relevant information.\n"
-
-      op.separator "\nOptions:"
-      op.on("--help", "This message") {
-        puts op
-        Kernel.exit 0
-      }
-
-      op.on('-l', '--logs', "Input files are logs to be parsed (run no tests).") {
-        @logs = true
-      }
-
-      msg = "Load yaml data of test results we already know about.  Default is to " +
-            "load rtriage.yaml in the pwd."
-      op.on('-d', '--data=FILE', msg) {|val|
-
-        if ! File.exist?(val)
-          exit_fail("--data '#{val}' does not exist")
-        end
-
-        @data = val
-      }
-
-      op.on('-n', '--name=TEST', "Name of test to run.  Can be given multiple times.") {|val|
-        @names << val
-      }
-
-      op.on('-r', '--regex=REGEX', "Regex to match tests.  Can be given multiple times.") {|val|
-        @regexes << val
-      }
-
-      op
-    end
-  end
-
-  # For errors in parsing the log.
-  class LogError < RuntimeError; end
-
-  # Stateful per-line output parsing.
-  class StatefulLogParser
-    # Counts.
-    Totals = Struct.new(:tests, :asserts, :failures, :errors)
-
-    # An uncaught exception.
-    class TypeError; end
-    # An assertion failed (including exception-asserts)
-    class TypeFailure; end
-
-    # Yielded when parsing.
-    Data = Struct.new(
-      :type,
-      # Location
-      :test_name, :test_class,
-      # only if :type == 'TypeError'
-      :exception_class,
-      :backtrace,
-      :message,
-      :log_line
-    )
-
-    # A Totals class.  Available after parse is finished.
-    attr_reader :totals
-
-    def initialize
-      @state = StStart
-      @line_num = 0
-      # number of tests and assertions etc. at the end of the file
-      @totals = Totals.new
-      # Will store "Error|Failure" etc.
-      @data = nil
-      @suite_name = nil
-      # see repeat_spam_check
-      @repeated_spam_check = false
-    end
-
-    # Call for every line.
-    def line(l, &blk)
-      @line = l
-      @line_num += 1
-      begin
-        send(STATE_TABLE[@state], &blk)
-      rescue ParseAgain
-        retry
-      end
-    end
-
-    # Call at EOF when using the line().
-    def finish
-      if @state == StStart
-        raise LogError, "no suite name"
-      elsif @state == StSpam
-        if @repeated_spam_check
-          m = "could not find the start of the error information despite repeated tries"
-        else
-          m = "could not find the start of the error information"
-        end
-        raise LogError, m
-      elsif @state != StEnd
-        raise LogError, "file ended in bad state: #{@state}"
-      end
-    end
-
-    private
-
-    class ParseAgain < Exception; end
-
-    # See docs of state_#{one_of_these.downcase} for what the states mean.
-    states = %w{
-      Start Spam End
-      MessageStart
-      ErrorLocation ErrorException ErrorTrace
-      FailureLocation FailureTrace
-      FailureAssertMessage FailureBody
-      FailureExceptionMessage FailureExceptionType FailureExceptionBacktrace
-    }
-
-    STATE_TABLE = {}
-    states.each {|name|
-      eval "class St#{name}; end"
-      eval "STATE_TABLE[St#{name}] = :state_#{name.downcase}"
-    }
-
-    #####################
-    ## State Functions ##
-    #####################
-
-    def state_start
-      if (m = line_matches?(/^Loaded suite (.+)/))
-        @suite_name = m.to_a.at(1)
-        change_state(StSpam)
-      end
-    end
-
-    MessageStartBitRe = /^Finished in [0-9]+([.][0-9]+)? seconds\.$/
-
-    # Looking for the MessageStartBitRe (the end of the test spam and the
-    # start of the messages)
-    def state_spam
-      if line_matches?(MessageStartBitRe)
-        change_state(StMessageStart)
-      end
-    end
-
-    TotalsRe = /^([0-9]+) tests, ([0-9]+) assertions, ([0-9]+) failures, ([0-9]+) errors$/
-
-    # Looking for the start of an error something like "1) Error"
-    def state_messagestart(&blk)
-      if (m = line_matches?(/^\s*[0-9]+\)\s*([^:]+):/))
-        yield @data if @data
-        @data = Data.new
-        @data.log_line = @line_num
-        @data.type, state =
-          case m.to_a.at(1).to_s
-          when 'Error' then [TypeError, StErrorLocation]
-          when 'Failure' then [TypeFailure, StFailureLocation]
-          else lraise("unknown test type #{@data.test_type}")
-          end
-        change_state(state)
-      elsif line_matches?(/^\s*$/)
-        # skip empty lines
-      elsif (m = line_matches?(TotalsRe))
-        # id @data because there might have been no matching tests.
-        yield @data if @data
-
-        subexpr = {
-          :tests= => 0,
-          :asserts= => 1,
-          :failures= => 2,
-          :errors= => 3
-        }
-
-        subexpr.each_pair {|k,v| @totals.send(k, m[v].to_i) }
-
-        change_state(StEnd)
-      else
-        lwarn "expected start of error; got '#{@line.chomp}'"
-        repeat_spam_check
-      end
-    end
-
-    def state_re
-      lraise("more data after ending totals: #{@line.chomp}")
-    end
-
-    SimpleLocationRe = /^([a-zA-Z0-9_]+)\(([^)]+)\)[:]?$/
-
-    # The line after the "1) Error" bit for Error message types.
-    def state_errorlocation
-      m = @line.match(SimpleLocationRe)
-
-      if ! m
-        lwarn "expected 'test_name(TestClass)'; got '#{@line.chomp}'"
-        repeat_spam_check
-        return
-      end
-
-      @data.test_name = m.to_a.at(1)
-      @data.test_class = m.to_a.at(2)
-
-      change_state(StErrorException)
-    end
-
-    # For an "Error" type test failure.  We should be on the exception type and
-    # message line
-    def state_errorexception
-      m = @line.match(/^([^:]+): (.+)$/)
-
-      if ! m
-        lwarn "expected 'Type: message'; got '#{@line.chomp}'"
-        repeat_spam_check
-        return
-      end
-
-      @data.exception_class = m[1]
-      @data.message = m[2].to_s.strip
-
-      change_state(StErrorTrace)
-    end
-
-    # Indented backtrace after an exception message.
-    def state_errortrace
-      if line_empty?
-        change_state(StMessageStart)
-      elsif line_matches?(/^\s+/)
-        @data.backtrace ||= []
-        @data.backtrace << @line.strip
-      else
-        # This can happen in some cases.
-        @data.message << @line.strip
-      end
-    end
-
-    # like "test_name(ClaseName) [function]:"
-    TracedLocationRe = /^([a-zA-Z0-9_]+)\(([^)]+)\)\s*\[([^\]]+)\]:$/
-
-    # Just like ErrorLocation except there can be a mini-backtrace on the same
-    # line.
-    def state_failurelocation
-      if (m = line_matches?(SimpleLocationRe))
-        m = m.to_a
-        @data.test_name = m.at(1)
-        @data.test_class = m.at(2)
-        change_state(StFailureTrace)
-      elsif (m = line_matches?(TracedLocationRe))
-        m = m.to_a
-        @data.test_name = m.at(1)
-        @data.test_class = m.at(2)
-        @data.backtrace = m.at(3)
-        change_state(StFailureBody)
-      else
-        lraise("dunno: '#{@line.chomp}'")
-      end
-    end
-
-    # The small backtrace at the start of a failure type error.
-    def state_failuretrace
-      if line_matches?(/^\s+/)
-        @data.backtrace ||= []
-        @data.backtrace << @line.strip
-      else
-        @data.backtrace[0].gsub!(/^\[/, '')
-        @data.backtrace[-1].gsub!(/\]:$/, '')
-        change_state(StFailureBody)
-        raise ParseAgain
-      end
-    end
-
-    # Either the start of a textual message (from assert failure) or the header
-    # for an assert_nothing_raised bit.
-    def state_failurebody
-      if line_matches?(/^Exception raised:/)
-        change_state(StFailureExceptionType)
-      else
-        @data.message ||= ''
-        @data.message << @line
-        change_state(StFailureAssertMessage)
-      end
-    end
-
-    # A standard message.
-    def state_failureassertmessage
-      if line_empty?
-        change_state(StMessageStart)
-      else
-        @data.message << @line
-      end
-    end
-
-    # After the start of an exception failure:
-    def state_failureexceptiontype
-      if (m = line_matches?(/^Class: <([^>]+)>/))
-        @data.exception_class = m[1]
-        change_state(StFailureExceptionMessage)
-      else
-        lraise("'Class: <something>' after assert-nothing-raised header")
-      end
-    end
-
-    # After Class:, we get Message <blah>.
-    def state_failureexceptionmessage
-      if (m = line_matches?(/^Message: <"([^"]+)">/))
-        @data.message = m[1]
-        change_state(StFailureExceptionBacktrace)
-      else
-        lraise_expected("'Message: <something>' after Class: <#{@data.exception_class}>")
-      end
-    end
-
-    # Skip everything until the end of the message.
-    def state_failureexceptionbacktrace
-      if line_empty?
-        change_state(StMessageStart)
-      end
-    end
-
-    #############
-    ## utility ##
-    #############
-
-    def repeat_spam_check
-      lwarn "assuming we started the log summary in the wrong place"
-      change_state(StSpam)
-      @repeated_spam_check = true
-    end
-
-    def line_matches?(re); @line.match(re); end
-    def line_empty?; line_matches?(/^\s*$/); end
-
-    def change_state(new_state)
-      @state = new_state
-    end
-
-    def lwarn(s)
-      lputs "warning: #{s}", STDERR
-    end
-
-    def lputs(s, stream = STDOUT); stream.puts "#{@line_num}: #{s}"; end
-
-    def lraise(message)
-      raise LogError, "#{@state}: #{@line_num}: #{message}"
-    end
-
-    def lraise_expected(message)
-      lraise("expected #{message}; got '#{@line.chomp}'")
-    end
-  end
-
-  # Non-stateful parser.  Parses one file.
-  class LogFileParser
-    # Helpful aliases.
-    TypeError = StatefulLogParser::TypeError
-    TypeFailure = StatefulLogParser::TypeFailure
-
-    # With block calls parse immediately.
-    def initialize(file, &blk)
-      @lp = StatefulLogParser.new
-      @file = file
-
-      if block_given?
-        parse(&blk)
-      end
-    end
-
-    # Invalid unless parse() has been run.
-    def totals; @lp.totals; end
-
-    # Yield data about every test.  Returns totals.
-    def parse(&blk)
-      File.open(@file.to_s, 'r') {|io|
-        io.each_line {|l| @lp.line(l, &blk) }
-      }
-      @lp.finish
-      @lp.totals
-    end
-  end
-
   # Handle the state of printing out errors.
   class ErrorPrinter
-    def initialize
+    def initialize(settings)
       @last_class = nil
     end
 
@@ -482,38 +133,60 @@ module Triage
     end
   end
 
-  # The "known data" file.  Initialising with nil gives a noop thing.
+  # Interface to the persistant state file.
+  class State
+    def initialize(settings, file)
+      @settings = settings
+      load_file(file)
+    end
+
+    # Update the state given the new data.
+    def update_file(test_data)
+      fail "not implemented"
+    end
+
+    private
+
+    def load_file(name)
+    end
+  end
+
+  # Queryable interface to the data extracted from the log file.
   class TestData
-    def initialize(file)
-      @file = file
+    # Fully initialise a new TestData from an io using the log parser.
+    def self.from_file(name)
+      lp = StatefulLogParser.new
+      td = TestData.new
+      File.open(name.to_s, 'r') {|io|
+        io.each_line {|l|
+          lp.line(l) {|data|
+            td.add(data)
+          }
+        }
+      }
+      lp.finish
+      t = lp.totals
+
+      td
     end
 
-    # Is the data open and loaded etc.
-    def open?; @file != nil; end
+    # Add data coming from the StatefulLogParser
+    def add(data)
+    end
+  end
 
-    ###########################
-    ## Querying what changed ##
-    ###########################
-
-    # The test is now known to our data.
-    class StatusNew; end
-    # It's still an error, but the value has changed.
-    class StatusChanged; end
-    # The test has the same status we know.
-    class StatusSame; end
-
-    # Has the status of this error changed?
-    def status(error)
-      if ! open?
-        StatusNew
-      else
-        fail
-      end
+  # Output manager, using the TestData and State information to produce a full
+  # report.
+  class Report
+    def initialize(settings, state, test_data)
+      @settings = settings
+      @state = state
+      @test_data = test_data
     end
 
-    def new?(error); status(error) == StatusNew; end
-    def same?(error); status(error) == StatusSame; end
-    def changed?(error); status(error) == StatusChanged; end
+    def display
+      p = ErrorPrinter.new(@settings)
+    end
   end
 
   # Entry point for the program's command-line.
@@ -525,88 +198,10 @@ module Triage
 
     def run!
       @settings = Settings.new.parse!(@args)
-      if @settings.logs?
-        parse_log_files
-      else
-        fail "running tests not implemented"
-      end
-    end
-
-    # The fisrt major mode of the program.
-    def parse_log_files
-      pr = ErrorPrinter.new
-      data = TestData.new(@settings.data)
-      @settings.inputs.each {|file|
-        p = LogFileParser.new(file)
-        p.parse {|e| pr.print(p, e) }
-
-        pr.totals(p.totals)
-        p.totals
-
-        # TODO:
-        #
-        # It occurs to me I might be using the wrong approach.  Perhaps I should
-        # really just be writing a new interface, as in just require() the test
-        # suite and deal with the errors that test-unit throws.  I have no idea
-        # how such a thing is done, though...
-        #
-        # Log Display:
-        # - print out in a pretty way avec colour
-        # - remove "not implemented" errors, but more sensibly
-        # - load data from a file on things we already know about
-        # - --changes option gives a special report of new failures and new
-        #   successes
-        # - print out the command to run a test (if at all possible) -- prolly
-        #   there needs to be a start() function which loads up the suite name
-        #   and then stops for more.
-        # - option to show/hide not-implemented (there should always be a count)
-        # - it would be *really* useful to know exactly what tests are where and
-        #   when so you can say when a test has disappeared.  It comes to the
-        #   same thing, really...
-        #
-        # Running:
-        # - write to a file or pipe by option
-        # - run the test command(s).
-        # - run all the tests in the data file.
-        # - run all tests that did have errors (optionally stop on first error)
-        #
-        # Other:
-        # - parser needs to be more lenient, for example it needs to allow no
-        #   suite name so we can have a truncated log (ie. just the error bits)
-        #
-        #
-        # YAML:
-        #
-        # What does the yaml data look like?  Well, it needs to be very similar
-        # every time, so it seems hashes are out (because they change orders).
-        #
-        # I need to:
-        #
-        # - list tests I have solved
-        # - list tests I know are broken
-        # - list why it's broken (although really I don't need to know that
-        #   data)
-        #
-        # So:
-        #
-        # - class: name
-        #   tests:
-        #   - name: test
-        #     status: broken
-        #     comment: blahblah
-        #   - name: test2
-        #     # useful for parsing a log file, for example
-        #     status: fixed
-        #     # used to determine if the bug has changed somehow
-        #     message: start of the message or regex
-        #     comment: blahblah
-        #   - name: test3
-        #     # ignore tests regardless of what's in them (but report if the
-        #     # error has gone now)
-        #     status: ignore
-        #     comment: blahblah
-        #
-      }
+      state = State.new(@settings, @settings.state_file)
+      test_data = TestData.from_file(@settings.log_file)
+      report = Report.new(@settings, state, test_data)
+      report.display
     end
   end
 end
