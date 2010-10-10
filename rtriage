@@ -22,30 +22,14 @@ module Triage
     def initialize(settings, state_file, config_file)
       @settings = settings
       load_state(state_file)
-      load_config(config_file)
+      load_config(config_file) if config_file
     end
 
     # Update the state given the new data.
     def update!(data)
       fail "not implemented"
 
-      #   In the YAML file:
-      #
-      #   * state date
-      #   * list of known failing tests:
-      #     * date found
-      #     * status in [ignored, not implemented, broken]
-      #     * known: true | false
-      #     * hidden: true
-      #     * reason/message
-      #     * comment from the user
-      #   * other data can be added later, such as command to run to get the test logs
-      #     etc.
-      #
-      # We should leave it open to have multiple sources for the yaml file
-      # because the general state info will be quite confusing when all  you
-      # really want to do is apply some config to one or two tests.
-
+      # TODO:
       # * add all failing tests which are not in the file
       # * update any existing tests, preserving the user's settings about them
       # * change the date of the state
@@ -84,11 +68,34 @@ module Triage
 
     # The config is a set of directives to apply to data about tests in the
     # state.
-    def load_config(name)
+    def load_config(file)
+      # a separate file which supplies directives to the state
+      #
+      # Contains:
+      #
+      # * list of directives:
+      #   * name / unit / both (we can apply to an entire unit)
+      #   * known: true | false -- we know it in the current state.  If the
+      #     state has changed then you get a message.  Perhaps we also want a
+      #     known_state?  It's prolly unnecessary because the known state is in
+      #     the state file.
+      #   * hidden: true | false -- unconditionally hide it
+      #   * comment: user comment
     end
 
     # The state is a big list of tests and what happened with them.
-    def load_state(name)
+    def load_state(file)
+      #   In the YAML file:
+      #
+      #   * state date
+      #   * list of known failing tests:
+      #     * test_class
+      #     * test_name
+      #     * date found
+      #     * status in [ignored, not implemented, broken]
+      #     * reason/message
+      #   * other data can be added later, such as command to run to get the test logs
+      #     etc.
     end
   end
 
@@ -142,28 +149,15 @@ module Triage
   # Handle the state of printing out errors.
   class ErrorPrinter
     def initialize(settings)
+      @settings = settings
       @last_class = nil
     end
 
-    # +parser+ is needed for the meta-info (e.g. suite name).
-    def print(parser, error_data)
-      e = error_data
-      # we'll need settings regarding this
-      failure = LogFileParser::TypeFailure
-      error = LogFileParser::TypeError
-      if e.type == error && e.message == 'not implemented'
-        return
-      elsif e.message =~ /not implemented/
-        return
-      end
-
-      if @last_class != e.test_class
-        @last_class = e.test_class
-        puts "* #{e.test_class}"
-      end
-
-      puts "  - #{e.test_name}"
-      puts "    #{e.message.match(/^[^\n]+/)}"
+    # A completed error data (i.e it must already have info on the state change
+    # and so on)
+    def print(e)
+      puts "#{e.test_class}::#{e.test_name}"
+      puts "#{e.message.match(/^[^\n]+/)}"
     end
 
     # Handle the unit counts.
@@ -182,15 +176,23 @@ module Triage
       #   state should not really be necessary if DataExtractor has done all the
       #   processing.
       @state = state
+      @datas = []
     end
 
     # Add processed data (from DataExtractor) to the report if relevant
     def add_if_relevant(data)
       return if ! relevant?(data)
+
+      @datas << data
     end
 
     def display
       p = ErrorPrinter.new(@settings)
+
+      @datas.each {|d|
+        p.print d
+      }
+
       # iterate given data and print it sensibly.
 
       # Make something like:
@@ -229,7 +231,7 @@ module Triage
 
     def run!
       @settings = Settings.new.parse!(@args)
-      state = State.new(@settings, @settings.state_file)
+      state = State.new(@settings, @settings.state_file, @settings.config_file)
       report = Report.new(@settings, state)
       data = DataStore.new
 
