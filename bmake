@@ -178,7 +178,7 @@ module BMake
     def initialize(args)
       @args = args
       @parser = make_parser
-      @test = false
+      @test = true
       @test_names = []
       @test_regexes = []
       @verbose = false
@@ -308,8 +308,8 @@ module BMake
             "Other arguments are passed to this program (use '--' to cancel valid arguments to this program.)"
       op.on('-p', '--program=TARGET', msg) {|val|
         @make_names << val
-        @program_cli << val
         exit_fail("only one --program may be given") unless @program_cli.empty?
+        @program_cli << val
       }
 
       op.separator "\nTesting:"
@@ -339,7 +339,7 @@ module BMake
     end
 
     def exit_fail(msg)
-      STDERR.puts msg
+      STDERR.puts "bmake: #{msg}"
       Kernel.exit 1
     end
   end
