@@ -299,9 +299,6 @@ module BMake
       op.on('-M', '--no-make', "Don't call make.") {
         @make = false
       }
-      op.on('-N', '--no-test', "Don't call ctest.") {
-        @test = false
-      }
       op.on('-m', '--make=NAME', "Run this target when using make.  Can be given multiple times.") {|val|
         @make_names << val
       }
@@ -316,6 +313,9 @@ module BMake
       }
 
       op.separator "\nTesting:"
+      op.on('-N', '--no-test', "Don't call ctest.") {
+        @test = false
+      }
       op.on('-t', '--test=NAME', "Name of test to run.  Can be given multiple times.") {|name|
         @test_names << name
       }
