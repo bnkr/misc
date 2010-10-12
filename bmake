@@ -318,7 +318,8 @@ module BMake
     end
   end
 
-  # Full names of tests where maybe means they're allowed to not exist.
+  # Initialiser object for parameters of the testing.  Contains names of tests
+  # where maybe means they're allowed to not exist.
   class TestConfig
     attr_accessor :names, :maybe_names
     attr_accessor :regexes
@@ -331,11 +332,6 @@ module BMake
       @verbose = false
       @required_args = nil
     end
-
-    # Are there any tests to run.
-    def any_tests?
-      ! @names.empty? || ! @maybe_names.empty? || ! @regexes.empty?
-    end
   end
 
   # Organises running tests and checking they exist.
@@ -343,14 +339,16 @@ module BMake
   # TODO:
   #   We should do the working directory stuff in here.
   class TestRunner
+    # Modifications to config are ignored.
     def initialize(config)
-      @config = config
+      @config = config.dup
+      @non_maybe_args = TestRunner.make_args(@config.names, @config.regexes)
     end
 
-    # Check that required names are present.
+    # Check that required names are present.  This is done in advance to avoid
+    # running a make first and then raising an error about the wrong target name.
     def check!
-      args = TestRunner.make_args(@config.names, @config.regexes)
-      if ! args.empty? && ! tests_exist?(args)
+      if ! @non_maybe_args.empty? && ! tests_exist?(@non_maybe_args)
         STDERR.puts "bmake: no tests matching parameters given"
         Kernel.exit 1
       end
@@ -358,14 +356,13 @@ module BMake
 
     # Run everything given.
     def run!
-      if ! @config.any_tests?
+      if ! any_named_tests?
         fail "shouldn't be called without any names"
       end
 
-      args = TestRunner.make_args(@config.names, @config.regexes)
-      if ! args.empty?
+      if ! @non_maybe_args.empty?
         puts "bmake: running named tests" if @config.verbose
-        run_tests!(args)
+        run_tests!(@non_mabe_args)
       end
 
       maybe_args = TestRunner.make_args(@config.maybe_names, [])
@@ -381,6 +378,11 @@ module BMake
     def run_all!
       puts "bmake: running all tests" if @config.verbose
       run_tests!(%w{-R .*})
+    end
+
+    # Are there any tests to run.
+    def any_named_tests?
+      ! @config.names.empty? || ! @config.maybe_names.empty? || ! @config.regexes.empty?
     end
 
     private
@@ -452,13 +454,13 @@ module BMake
     def run!
       @settings = Settings.new(@args).parse!
 
-      test_config = TestConfig.new
-      test_config.verbose = @settings.verbose?
-      test_config.names += @settings.test_names
-      test_config.regexes += @settings.test_regexes
-      test_config.maybe_names += @settings.maybe_test_names
+      tc = TestConfig.new
+      tc.verbose = @settings.verbose?
+      tc.names += @settings.test_names
+      tc.regexes += @settings.test_regexes
+      tc.maybe_names += @settings.maybe_test_names
 
-      @tests = TestRunner.new(test_config)
+      @tests = TestRunner.new(tc)
 
       puts "bmake: cd '#{@settings.working_dir}'" if @settings.verbose?
       in_directory(@settings.working_dir) {
@@ -476,7 +478,7 @@ module BMake
 
         if @settings.test_program?
           run_program!
-        elsif test_config.any_tests?
+        elsif @tests.any_named_tests?
           @tests.run!
         else
           @tests.run_all!
