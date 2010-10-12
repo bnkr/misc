@@ -154,9 +154,8 @@ module BMake
     attr_bool_reader :make
     # [] for use nothing.
     attr_reader :make_names
-    # Whether to use the non-argument values on the cli as arguments to a
-    # program.
-    attr_bool_reader :run_program
+    # Should we run program_cli
+    attr_bool_reader :test_program
     # Command name and arguments for running the program.
     attr_reader :program_cli
     # Name of configuration (win32, unix etc.)
@@ -185,7 +184,7 @@ module BMake
       @make = true
       @make_names = []
       @maybe_test_names = []
-      @run_program = false
+      @test_program = false
       @program_cli = []
       @paths = nil
       @working_dir = nil
@@ -202,11 +201,12 @@ module BMake
       end
 
       @configuration ||= 'unix'
-      if @run_program
+      if ! @program_cli.empty?
         @program_cli += other_args
-      else
+        @test_program = true
+      elsif ! other_args.empty?
         @maybe_test_names = other_args
-        @make_names += @maybe_test_names
+        @make_names += @maybe_test_names if @make
       end
 
       if @make == false
@@ -217,8 +217,6 @@ module BMake
           STDERR.puts "bmake: make has been disabled and no test names have been given"
           Kernel.exit 1
         end
-      elsif @test_names.empty? && @make_names.empty?
-        @name_names = ['all']
       end
 
       @paths = PathFinder.new(self)
@@ -245,9 +243,9 @@ module BMake
       op = OptionParser.new
       op.banner += " [targets]"
       op.banner += "\nBuilds and tests projects using the standard bunker project structure."
-      op.banner += "\nTargets specified without arguments will be built with make and tested"
-      op.banner += "\nonly if they are valid as test names.  If the --run argument is given"
-      op.banner += "\nthen [targets] arguments are used as cli parameters."
+      op.banner += "\nTargets specified as non-options will be built with make and tested"
+      op.banner += "\nonly if they are valid as test names.  If there are no targets and no"
+      op.banner += "\nother arguments, then make all and all test will be run."
       op.banner += "\n\n"
 
       op.separator "General:"
@@ -255,7 +253,7 @@ module BMake
         puts op
         puts
         puts "bmake Copyright (C) James Webber, 2010."
-        Kernel.exit 1
+        Kernel.exit 0
       }
       op.on('-s', '--subdir', "Use a binary dir which mirrors the path in the srcdir when running tests.") {
         listfile = Pathname.getwd + "./CMakeLists.txt"
@@ -285,11 +283,12 @@ module BMake
       }
 
       op.separator "\nRunning:"
-      op.on('-p', '--program=TARGET', "Make a target and run it.  Only be given once.") {|val|
+      msg = "Make a target and run its output binary.  " +
+            "Other arguments are passed to this program (use '--' to cancel valid arguments to this program.)"
+      op.on('-p', '--program=TARGET', msg) {|val|
         @make_names << val
-        exit_fail("only one --program may be given") if @run_program
         @program_cli << val
-        @run_program = true
+        exit_fail("only one --program may be given") unless @program_cli.empty?
       }
 
       op.separator "\nTesting:"
@@ -319,35 +318,69 @@ module BMake
     end
   end
 
-  # Functions which have identifiers trailed with exclamation marks can exit.
-  class CommandLine
-    def initialize(args); @args = args; end
+  # Full names of tests where maybe means they're allowed to not exist.
+  class TestConfig
+    attr_accessor :names, :maybe_names
+    attr_accessor :regexes
+    attr_accessor :verbose
 
+    def initialize
+      @names = []
+      @regexes = []
+      @maybe_names = []
+      @verbose = false
+      @required_args = nil
+    end
+
+    # Are there any tests to run.
+    def any_tests?
+      ! @names.empty? || ! @maybe_names.empty? || ! @regexes.empty?
+    end
+  end
+
+  # Organises running tests and checking they exist.
+  #
+  # TODO:
+  #   We should do the working directory stuff in here.
+  class TestRunner
+    def initialize(config)
+      @config = config
+    end
+
+    # Check that required names are present.
+    def check!
+      args = TestRunner.make_args(@config.names, @config.regexes)
+      if ! args.empty? && ! tests_exist?(args)
+        STDERR.puts "bmake: no tests matching parameters given"
+        Kernel.exit 1
+      end
+    end
+
+    # Run everything given.
     def run!
-      @settings = Settings.new(@args).parse!
+      if ! @config.any_tests?
+        fail "shouldn't be called without any names"
+      end
 
-      puts "bmake: cd '#{@settings.working_dir}'" if @settings.verbose?
-      in_directory(@settings.working_dir) {
-        if @settings.cmake?
-          run_cmake!
+      args = TestRunner.make_args(@config.names, @config.regexes)
+      if ! args.empty?
+        puts "bmake: running named tests" if @config.verbose
+        run_tests!(args)
+      end
+
+      maybe_args = TestRunner.make_args(@config.maybe_names, [])
+      if ! maybe_args.empty?
+        puts "bmake: running tests if they exist" if @config.verbose
+        if tests_exist?(maybe_args)
+          run_tests!(maybe_args)
         end
+      end
+    end
 
-        name_args = make_name_args
-        check_tests_exist!(name_args) if name_args != []
-
-        if @settings.make?
-          run_make!
-        elsif @settings.verbose?
-          puts "bmake: running make is disabled"
-        end
-
-        if @settings.run_program?
-          run_program!
-        else
-          run_maybe_tests!
-          run_tests!(name_args) if name_args != []
-        end
-      }
+    # Run everthing there is.
+    def run_all!
+      puts "bmake: running all tests" if @config.verbose
+      run_tests!(%w{-R .*})
     end
 
     private
@@ -361,28 +394,97 @@ module BMake
         Kernel.exit 1
       end
 
-      if @settings.verbose?
+      if @config.verbose
         STDOUT.write "bmake: check test exists with name args: #{name_args.join(' ')}... "
       end
 
       # It doesn't print "No tests were found!!!" under -N mode.
       if stdout =~ /^[Tt]otal\s+[Tt]ests:\s*0\s*$/
-        puts "nope" if @settings.verbose?
+        puts "nope" if @config.verbose
         false
       else
-        puts "yep" if @settings.verbose?
+        puts "yep" if @config.verbose
         true
       end
     end
 
-    def check_tests_exist!(name_args)
-      if ! tests_exist?(name_args)
-        STDERR.puts "bmake: no tests matching parameters given"
+    def run_tests!(name_args)
+      cl = %w{ctest}
+      cl << if @config.verbose then "-V" else "--output-on-failure" end
+      cl += name_args
+
+      puts "bmake: exec: #{cl[0]} \"#{cl[1..-1].join('" "')}\""
+      status = Fork.command(*cl)
+      if ! status.success?
         Kernel.exit 1
+      elsif @config.verbose
+        puts "bmake: test(s) matching #{name_args[1]} worked"
+      end
+    end
+
+    # Return [-R, names and regexes] or [].
+    def self.make_args(names, regexes)
+      re_arg = str_arg = nil
+
+      if ! regexes.empty?
+        re_arg = "(" + regexes.join(')|(') + ")"
       end
 
-      nil
+      if ! names.empty?
+        str_arg = "^" + names.join('$|^') + "$"
+      end
+
+      if re_arg || str_arg
+        ret = ['-R', [re_arg, str_arg].compact.join('|')]
+      else
+        ret = []
+      end
+
+      ret
     end
+
+  end
+
+  # Functions which have identifiers trailed with exclamation marks can exit.
+  class CommandLine
+    def initialize(args); @args = args; end
+
+    def run!
+      @settings = Settings.new(@args).parse!
+
+      test_config = TestConfig.new
+      test_config.verbose = @settings.verbose?
+      test_config.names += @settings.test_names
+      test_config.regexes += @settings.test_regexes
+      test_config.maybe_names += @settings.maybe_test_names
+
+      @tests = TestRunner.new(test_config)
+
+      puts "bmake: cd '#{@settings.working_dir}'" if @settings.verbose?
+      in_directory(@settings.working_dir) {
+        if @settings.cmake?
+          run_cmake!
+        end
+
+        @tests.check!
+
+        if @settings.make?
+          run_make!
+        elsif @settings.verbose?
+          puts "bmake: running make is disabled"
+        end
+
+        if @settings.test_program?
+          run_program!
+        elsif test_config.any_tests?
+          @tests.run!
+        else
+          @tests.run_all!
+        end
+      }
+    end
+
+    private
 
     def run_cmake!
       puts "bmake: running cmake" if @settings.verbose?
@@ -448,6 +550,7 @@ module BMake
     end
 
     def run_maybe_tests!
+      puts "bmake: running target names if they are tests" if @settings.verbose?
       names = @settings.maybe_test_names
       return if names.empty?
 
@@ -456,25 +559,11 @@ module BMake
         if tests_exist?(args)
           run_tests!(args)
         elsif @settings.verbose?
-          puts "bmake: target name '#{name}' is not a test"
+          puts "bmake: target name '#{name}' is not a test: ignoring it"
         end
       }
 
       nil
-    end
-
-    def run_tests!(name_args)
-      cl = %w{ctest}
-      cl << if @settings.verbose? then "-V" else "--output-on-failure" end
-      cl += name_args
-
-      puts "bmake: exec: #{cl[0]} \"#{cl[1..-1].join('" "')}\""
-      status = Fork.command(*cl)
-      if ! status.success?
-        Kernel.exit 1
-      elsif @settings.verbose?
-        puts "bmake: test(s) matching #{name_args[1]} worked"
-      end
     end
 
     def in_directory(d)
@@ -485,27 +574,6 @@ module BMake
       ensure
         Dir.chdir(old_d)
       end
-    end
-
-    # Return [-R, test_names] or [].
-    def make_name_args
-      re_arg = str_arg = nil
-
-      if ! @settings.test_regexes.empty?
-        re_arg = "(" + @settings.test_regexes.join(')|(') + ")"
-      end
-
-      if ! @settings.test_names.empty?
-        str_arg = "^" + @settings.test_names.join('$|^') + "$"
-      end
-
-      if re_arg || str_arg
-        ret = ['-R', [re_arg, str_arg].compact.join('|')]
-      else
-        ret = []
-      end
-
-      ret
     end
   end
 end
