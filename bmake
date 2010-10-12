@@ -152,6 +152,8 @@ module BMake
     attr_bool_reader :cmake
     # Whether to run make.
     attr_bool_reader :make
+    # Whether to run ctest.
+    attr_bool_reader :test
     # [] for use nothing.
     attr_reader :make_names
     # Should we run program_cli
@@ -176,6 +178,7 @@ module BMake
     def initialize(args)
       @args = args
       @parser = make_parser
+      @test = false
       @test_names = []
       @test_regexes = []
       @verbose = false
@@ -209,7 +212,7 @@ module BMake
         @make_names += @maybe_test_names if @make
       end
 
-      if @make == false
+      if ! @make
         if ! @make_names.empty?
           STDERR.puts "bmake: make has been disabled but make targets have been given"
           Kernel.exit 1
@@ -217,6 +220,24 @@ module BMake
           STDERR.puts "bmake: make has been disabled and no test names have been given"
           Kernel.exit 1
         end
+      end
+
+      if ! @test
+        if @test_program
+          STDERR.puts "bmake: testing has been disabled but a test program is given"
+          Kernel.exit 1
+        elsif ! @test_names.empty?
+          STDERR.puts "bmake: testing has been disabled but test names have been given"
+          Kernel.exit 1
+        elsif ! @test_regexes.empty?
+          STDERR.puts "bmake: testing has been disabled but test regexes have been given"
+          Kernel.exit 1
+        end
+      end
+
+      if ! @make && ! @test && @maybe_test_names
+        STDERR.puts "bmake: make and test are both disabled but there are test/target names given"
+        Kernel.exit 1
       end
 
       @paths = PathFinder.new(self)
@@ -278,6 +299,9 @@ module BMake
       op.on('-M', '--no-make', "Don't call make.") {
         @make = false
       }
+      op.on('-N', '--no-test', "Don't call ctest.") {
+        @test = false
+      }
       op.on('-m', '--make=NAME', "Run this target when using make.  Can be given multiple times.") {|val|
         @make_names << val
       }
@@ -298,7 +322,9 @@ module BMake
       op.on('-r', '--regex=EXPR', "A CMake regex to run tests matching.  Can be given multiple times.") {|val|
         @test_regexes << val
       }
-      op.on('-T', '--test-target=NAME', "Same as giving -t NAME -m NAME.") {|name|
+      msg = "Same as giving -t NAME -m NAME.  This differs from non-argument " +
+            "targets in that the test must exist."
+      op.on('-T', '--test-target=NAME', msg) {|name|
         @test_names << name
         @make_names << name
       }
@@ -476,7 +502,9 @@ module BMake
           puts "bmake: running make is disabled"
         end
 
-        if @settings.test_program?
+        if ! @settings.test?
+          puts "bmake: running ctest is disabled" if @settings.verbose?
+        elsif @settings.test_program?
           run_program!
         elsif @tests.any_named_tests?
           @tests.run!
