@@ -548,7 +548,7 @@ module BMake
       args = []
       program = nil
 
-      file = @settings.program_cli[0]
+      file = "./#{@settings.program_cli[0]}"
       if File.exist?(file)
         program = file
       elsif File.exist?(file + ".exe")
