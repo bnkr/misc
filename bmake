@@ -67,15 +67,13 @@ module BMake
       @src_dir = ROOT_WRITINGS_SRC_DIR + name
       @bin_dir = ROOT_WRITINGS_BIN_DIR + name
 
-      set_dirs(ROOT_WRITINGS_SRC_DIR, ROOT_WRITINGS_BIN_DIR, name, subdir_bits)
+      set_dirs(ROOT_WRITINGS_SRC_DIR, ROOT_WRITINGS_BIN_DIR, name)
+      set_subdirs(subdir_bits)
     end
 
-    def set_dirs(base_src, base_bin, name, subdir_bits)
+    def set_dirs(base_src, base_bin, name)
       @bin_dir = base_bin + name
       @src_dir = base_src + name
-
-      @src_subdir = @src_dir + File.join(subdir_bits)
-      @bin_subdir = @bin_dir + File.join(subdir_bits)
 
       if ! @src_dir.directory?
         STDERR.puts "bmake: this project does not appear to have a source directory: '#{@src_dir}'"
@@ -86,6 +84,13 @@ module BMake
         STDERR.puts "bmake: this project does not appear to have a binary directory: '#{@bin_dir}'"
         Kernel.exit 1
       end
+    end
+
+    # Separate due to the configuration directory bit needs be set before the
+    # subdirs
+    def set_subdirs(subdir_bits)
+      @src_subdir = @src_dir + File.join(subdir_bits)
+      @bin_subdir = @bin_dir + File.join(subdir_bits)
     end
 
     # Find directories if we're not in a writings directory (so find a code
@@ -99,13 +104,13 @@ module BMake
       end
       project_name, subdir_bits = data
 
-      set_dirs(ROOT_SRC_DIR, ROOT_BIN_DIR, project_name, subdir_bits)
-
+      set_dirs(ROOT_SRC_DIR, ROOT_BIN_DIR, project_name)
       @bin_dir += "./#{@settings.configuration}"
       if ! @bin_dir.exist?
         STDERR.puts "bmake: configuration directory '#{@settings.configuration}' does not exist in bindir '#{@bin_dir.dirname}'"
         Kernel.exit 1
       end
+      set_subdirs(subdir_bits)
     end
 
     def split_path(path)
