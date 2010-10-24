@@ -284,7 +284,10 @@ class CommandLine
 
     ig = Pathname.new('.gitignore')
     if not ig.exist?
-      ig.open('w') {|io| io.puts "*.sw[po]" }
+      ig.open('w') {|io|
+        io.puts "*.sw[po]"
+        io.puts "tags"
+      }
       Action.cmd("git add .gitignore")
       Action.cmd("git commit -m \"Add ignore files.\"")
     elsif @settings.verbose?
@@ -296,6 +299,9 @@ class CommandLine
   # Add license, readme, and so on.
   def make_files
     Action.ln(@settings.bsd3_license_file, 'COPYING')
+    # TODO:
+    #   use the basic readme file from ~/src/defer-screensaver but require that
+    #   the introduction is written also.
     Action.touch('README')
     Action.touch('CHANGELOG')
     if Pathname.new('README').size <= 1
