@@ -261,6 +261,9 @@ input[type="submit"], input[type="text"] {
   <p>
     <a href="https://mail.google.com/mail/#inbox">Google Mail</a>
   </p>
+  <p>
+    <a href="http://news.bbc.co.uk/weather/forecast/2818?area=RG3&state=fo:B#fo:B">BBC Reading Weather</a>
+  </p>
 </div>
 </body>
 </html>
