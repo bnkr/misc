@@ -259,9 +259,7 @@ input[type="submit"], input[type="text"] {
 <div class="section">
   <h2>Services</h2>
   <p>
-    <a href="https://mail.google.com/mail/#inbox">Google Mail</a>
-  </p>
-  <p>
+    <a href="https://mail.google.com/mail/#inbox">Google Mail</a><br/>
     <a href="http://news.bbc.co.uk/weather/forecast/2818?area=RG3&state=fo:B#fo:B">BBC Reading Weather</a>
   </p>
 </div>
