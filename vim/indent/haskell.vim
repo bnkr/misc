@@ -62,15 +62,20 @@ fun! GetHaskellIndent(lnum)
     endif
   end
 
-  " A 'where' on its own (as we type it due to indentkeys).  Indent to one more
-  " than the module token if there is one; otherwise one more than the current
+  " We'll reuse these.
+  let module_start_re = '^\s*module\>'
+  let non_module_char_re = '[^ \ta-z0-9A-Z()]'
+  let terminating_where_re = '\<where\s*$'
+
+  " A 'where' that we just wrote (due to indentkeys).  Indent to one more than
+  " the module token if there is one; otherwise one more than the current
   " indent.  This overs 'where' in a function or terminating a module def.
-  if this_line =~ '^\s*where$'
+  if this_line =~ terminating_where_re
     let i = prev_lnum
     while i > 0 
-      if getline(i) =~ '^\s*module\>'
+      if getline(i) =~ module_start_re
         return indent(i) + &shiftwidth
-      elseif getline(i) =~ '='
+      elseif getline(i) =~ non_module_char_re
         return indent(prev_lnum) + &shiftwidth
       endif
       let i = i - 1
@@ -94,7 +99,7 @@ fun! GetHaskellIndent(lnum)
   endif
 
   " Indent after a module which hasn't been terminated with a where
-  if prev_line =~ '^\s*module\>' && prev_line !~ '\<where\s*$'
+  if prev_line =~ '^\s*module\>' && prev_line !~ terminating_where_re 
     return indent(prev_lnum) + &shiftwidth
   endif
 
@@ -103,13 +108,12 @@ fun! GetHaskellIndent(lnum)
   "
   " We decide that there is *not* a module if we see any characters which aren't
   " allowedin module statements.
-  if prev_line =~ '\<where\s*$'
+  if prev_line =~ terminating_where_re 
     let i = prev_lnum - 1
-    return 0
     while i > 0 
-      if getline(i) =~ '^\s*module\>'
+      if getline(i) =~ module_start_re 
         return indent(i)
-      elseif getline(i) =~ '[^\sa-z0-9A-Z()]'
+      elseif getline(i) =~ non_module_char_re
         return indent(prev_lnum) + &shiftwidth
       endif
       let i = i - 1
