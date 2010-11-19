@@ -203,6 +203,9 @@ let g:load_doxygen_syntax=1
 autocmd FileType text  set spelllang=en_gb
 autocmd FileType text  set spell
 
+" Haskell bits.
+" let g:hs_highlight_delimiters = 1
+let g:hs_highlight_more_types = 1
 
 " TODO: get rid of comments when joining lines.
 " http://vim.wikia.com/wiki/Remap_join_to_merge_comment_lines
@@ -217,6 +220,7 @@ autocmd FileType docbk,xxs,c,cpp,java,php,ruby,cmake,latex,lemon,tex,asciidoc,sh
 " XML turns off spell checking in unless folding is on.  I have *no* idea why
 " thsi is but this line fixes it.
 let g:xml_syntax_folding=1
+
 
 " FIXME: 
 "   this lot doesn't work.  Maybe it needs to be in the syntax/ directory?  I

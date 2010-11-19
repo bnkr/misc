@@ -62,10 +62,20 @@ fun! GetHaskellIndent(lnum)
     endif
   end
 
-  " A 'where' on its own is an indent
+  " A 'where' on its own (as we type it due to indentkeys).  Indent to one more
+  " than the module token if there is one; otherwise one more than the current
+  " indent.  This overs 'where' in a function or terminating a module def.
   if this_line =~ '^\s*where$'
-    return indent(prev_lnum) + &shiftwidth
-  endif
+    let i = prev_lnum
+    while i > 0 
+      if getline(i) =~ '^\s*module\>'
+        return indent(i) + &shiftwidth
+      elseif getline(i) =~ '='
+        return indent(prev_lnum) + &shiftwidth
+      endif
+      let i = i - 1
+    endwhile
+  end
 
   " Indent if the line terminates on one of the operators.  We also need to do
   " this after the open brack bit to avoid a conflict when calling from the '}'
@@ -77,6 +87,8 @@ fun! GetHaskellIndent(lnum)
   "   avoided from this match by specifying only one character operators next to
   "   whitespace.  We'd have to add in the "->" and "=>" things, though so it
   "   prolly comes to roughly the same thing..
+  "
+  "   I also need in and let etc. here.
   if prev_line =~ '[\-!$%^&*(|=~?/\\{:><\[]\s*$' || prev_line =~ '\<do\s*$' 
     return indent(prev_lnum) + &shiftwidth
   endif
@@ -86,18 +98,21 @@ fun! GetHaskellIndent(lnum)
     return indent(prev_lnum) + &shiftwidth
   endif
 
-  " Indent after a terminating where excluding a where which appears to be part
-  " of a module declaration.  We decide what a module declaration is based on
-  " the fact that it's not allowed an equals operator in it whereas all
-  " functions will have one.
-  if prev_line =~ "\<where\s*$"
-    let i = prev_lnum
+  " A line terminating 'where': reset indent to the level of the module token if
+  " there is one; otherwise indent by one.  
+  "
+  " We decide that there is *not* a module if we see any characters which aren't
+  " allowedin module statements.
+  if prev_line =~ '\<where\s*$'
+    let i = prev_lnum - 1
+    return 0
     while i > 0 
-      if getline(i) =~ '\<module\>'
+      if getline(i) =~ '^\s*module\>'
+        return indent(i)
+      elseif getline(i) =~ '[^\sa-z0-9A-Z()]'
         return indent(prev_lnum) + &shiftwidth
-      elseif getline(i) =~ '[=]'
-        return indent(prev_lnum)
-      end
+      endif
+      let i = i - 1
     endwhile
   endif
 
