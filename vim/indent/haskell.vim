@@ -40,7 +40,7 @@ fun! GetHaskellIndent(lnum)
   let module_start_re = '^\s*module\>'
   let non_module_char_re = '[^ \ta-z0-9A-Z()]'
   let terminating_where_re = '\<where\s*$'
-  let class_start_re = '^\s*\(class\|instance\)'
+  let class_start_re = '^\s*\(class\|instance\|data\)'
 
   " This block of ifs makes sure that we can at least indent  the entire top of
   " the while without  the 'where' clasuses causing an indent every time they're
