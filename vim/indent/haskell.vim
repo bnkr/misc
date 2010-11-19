@@ -96,11 +96,11 @@ fun! GetHaskellIndent(lnum)
       if getline(i) =~ '\<module\>'
         return indent(prev_lnum) + &shiftwidth
       elseif getline(i) =~ '[=]'
-        return
+        return indent(prev_lnum)
       end
     endwhile
   endif
 
   " Default case if we get here is to leave the indent unmodified.
-  return
+  return indent(prev_lnum)
 endfunction
