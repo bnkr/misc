@@ -36,6 +36,23 @@ fun! GetHaskellIndent(lnum)
   let prev_line = getline(prev_lnum)
   let this_line = getline(a:lnum)
 
+  " We'll reuse these.
+  let module_start_re = '^\s*module\>'
+  let non_module_char_re = '[^ \ta-z0-9A-Z()]'
+  let terminating_where_re = '\<where\s*$'
+  let class_start_re = '^\s*\(class\|instance\)'
+
+  " This block of ifs makes sure that we can at least indent  the entire top of
+  " the while without  the 'where' clasuses causing an indent every time they're
+  " seen.
+  if this_line =~ module_start_re
+    return 0
+  elseif this_line =~ class_start_re
+    return 0
+  elseif this_line =~ '^\s*import'
+    return 0
+  end
+
   " De-indent if there's a close bracket on its own.  Note: due to indentkeys,
   " this will happen as we type.
   if this_line =~ '^\s*[)}\]]\s*$'
