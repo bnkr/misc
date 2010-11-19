@@ -1,0 +1,2 @@
+# Readline configuration for haskell.
+historyDuplicates: IgnoreConsecutive
