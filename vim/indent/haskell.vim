@@ -62,24 +62,88 @@ fun! GetHaskellIndent(lnum)
     endif
   end
 
-  " We'll reuse these.
-  let module_start_re = '^\s*module\>'
-  let non_module_char_re = '[^ \ta-z0-9A-Z()]'
-  let terminating_where_re = '\<where\s*$'
+  let prev_term_where = 0
+  let this_term_where = 0
+  let lone_where = 0
+
+  let lone_where_re = '^\s*where\s*$'
+
+  if this_line =~ lone_where_re
+    let this_term_where = 1
+    let lone_where = 1
+  elseif this_line =~ terminating_where_re 
+    let this_term_where = 1
+    let lone_where = 0
+  elseif prev_line =~ terminating_where_re
+    let prev_term_where = 1
+    let lone_where = 0
+  end
 
   " A 'where' that we just wrote (due to indentkeys).  Indent to one more than
-  " the module token if there is one; otherwise one more than the current
-  " indent.  This overs 'where' in a function or terminating a module def.
-  if this_line =~ terminating_where_re
-    let i = prev_lnum
+  " the module token if there is a module; otherwise one more than the current
+  " indent.  This covers 'where' in a function or terminating a module def.
+  "
+  " We decide that there is *not* a module if we see any characters which aren't
+  " allowed in module statements.
+  "
+  " This handles '=where'.
+  if this_term_where == 1 || prev_term_where == 1
+    " Don't indent the where if there's a lone closing bracket on the
+    " earlier line.  Note: important to match before non_module_char_re
+    " because they contain the same characters!  Note also: we only check
+    " closest nonblank line above, not all the lines.
+    if prev_line =~ '^\s*[\])}]\+\s*$'
+      return indent(prev_lnum)
+    endif
+
+    if this_term_where == 1
+      let i = prev_lnum
+    else
+      let i = prev_lnum - 1
+    endif
+
     while i > 0 
-      if getline(i) =~ module_start_re
-        return indent(i) + &shiftwidth
-      elseif getline(i) =~ non_module_char_re
+      let line_i = getline(i)
+      if line_i =~ module_start_re
+
+        if this_term_where == 1
+          if lone_where == 1
+            " If it's on a line of its own then use module + 1 regardless of the
+            " export brackets.
+            return indent(i) + &shiftwidth
+          else
+            " Otherwise it must be a continuation of a long module line and
+            " therefore the other indentation rules should have sotred *this
+            " particular line* line out already.  (Note: this code is probably
+            " unreachable becasue the ony other tokens that can go in are the
+            " close brackets which match at a higher precedence.
+            return indent(a:lnum)
+          end
+        else
+          " If the where was on the previous line and said line was part of a
+          " module declaration then we need to return to the indent of the
+          " module ( zero usually)
+          return indent(i)
+        end
+      elseif line_i =~ non_module_char_re
+        " If we're not in a module then we need to indent whether this line is a
+        " 'where' or we're on the line after one.
         return indent(prev_lnum) + &shiftwidth
       endif
+
       let i = i - 1
     endwhile
+
+    " Be safe we could end up with very weird behavior if continuing to do other
+    " matches.
+    if i <= 0
+      return indent(prev_lnum)
+    end
+  end
+
+  " Indents from a class are always one.
+  if prev_line =~ class_start_re
+    return &shiftwidth
   end
 
   " Indent if the line terminates on one of the operators.  We also need to do
@@ -98,28 +162,9 @@ fun! GetHaskellIndent(lnum)
     return indent(prev_lnum) + &shiftwidth
   endif
 
-  " A line terminating 'where': reset indent to the level of the module token if
-  " there is one; otherwise indent by one.  
-  "
-  " We decide that there is *not* a module if we see any characters which aren't
-  " allowedin module statements.
-  if prev_line =~ terminating_where_re 
-    let i = prev_lnum - 1
-    while i > 0 
-      if getline(i) =~ module_start_re 
-        return indent(i)
-      elseif getline(i) =~ non_module_char_re
-        return indent(prev_lnum) + &shiftwidth
-      endif
-      let i = i - 1
-    endwhile
-
-    return indent(prev_lnum)
-  endif
-
   " Indent after a module which hasn't been terminated with a where.  The last
   " part is implicit because we already matched terminating wheres.
-  if prev_line =~ '^\s*module\>'
+  if prev_line =~ module_start_re
     return indent(prev_lnum) + &shiftwidth
   endif
 
