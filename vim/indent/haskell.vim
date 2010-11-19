@@ -8,6 +8,11 @@
 "
 "   Indents haskell code. See comments in the file to work out what it's doing.
 "
+"   Unfortunately, it can't indent a full file because the 'where' clauses
+"   always indent further every time.  Most people tend to finish a where
+"   clasuse with a blank line (before going on to the next top-level function)
+"   but it's not really safe to assume that.
+"
 " Variables:
 "
 "   None.
