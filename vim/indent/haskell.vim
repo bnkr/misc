@@ -75,13 +75,12 @@ fun! GetHaskellIndent(lnum)
   " re-indent with CTRL+F or whatever.
   if this_line =~ '^\s*deriving\>'
     let i = prev_lnum
-    while i > 0 && getline(i) !~ '^\s*data\>'
+    while i > 0 
+      if getline(i) !~ '^\s*data\>'
+        return indent(i) + &shiftwidth
+      end
       let i = i - 1
     endwhile
-
-    if i > 0
-      return indent(i) + &shiftwidth
-    endif
   end
 
   let prev_term_where = 0
