@@ -98,11 +98,6 @@ fun! GetHaskellIndent(lnum)
     return indent(prev_lnum) + &shiftwidth
   endif
 
-  " Indent after a module which hasn't been terminated with a where
-  if prev_line =~ '^\s*module\>' && prev_line !~ terminating_where_re 
-    return indent(prev_lnum) + &shiftwidth
-  endif
-
   " A line terminating 'where': reset indent to the level of the module token if
   " there is one; otherwise indent by one.  
   "
@@ -118,6 +113,14 @@ fun! GetHaskellIndent(lnum)
       endif
       let i = i - 1
     endwhile
+
+    return indent(prev_lnum)
+  endif
+
+  " Indent after a module which hasn't been terminated with a where.  The last
+  " part is implicit because we already matched terminating wheres.
+  if prev_line =~ '^\s*module\>'
+    return indent(prev_lnum) + &shiftwidth
   endif
 
   " Default case if we get here is to leave the indent unmodified.
