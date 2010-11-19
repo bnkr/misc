@@ -55,7 +55,7 @@ fun! GetHaskellIndent(lnum)
 
   " De-indent if there's a close bracket on its own.  Note: due to indentkeys,
   " this will happen as we type.
-  if this_line =~ '^\s*[)}\]]\s*$'
+  if this_line =~ '^\s*[)}\]]\s*'
     let leading_ws = match(prev_line, '[^ ]')
 
     let open_brack_re = "[{(\[]\s*$"
