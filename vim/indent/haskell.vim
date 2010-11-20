@@ -220,11 +220,7 @@ fun! GetHaskellIndent(lnum)
   "   prolly comes to roughly the same thing..
   "
   "   I also need in and let etc. here.
-  "
-  " TODO:
-  "   I can do better than this.  If we detect earlier typedefs and whatever,
-  "   then it's easier to find a base when manually indenting...
-  if prev_line =~ '[\-!$%^&*(|=~?/\\{:><\[]\s*$' || prev_line =~ '\<do\s*$' 
+  if prev_line =~ '[\-!$%^&*(|=~?/\\{:><\[]\s*$' || prev_line =~ '\<\(do\|let\)\s*$' 
     return indent(prev_lnum) + &shiftwidth
   endif
 
