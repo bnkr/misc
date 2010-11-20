@@ -8,14 +8,13 @@
 "
 "   Indents haskell code. See comments in the file to work out what it's doing.
 "
-"   Unfortunately, it can't indent a full file because the 'where' clauses
-"   always indent further every time.  Most people tend to finish a where
-"   clasuse with a blank line (before going on to the next top-level function)
-"   but it's not really safe to assume that.
-"
 " Variables:
 "
-"   None.
+"   - g:haskell_gaps_zero -- causes indentation to be reset to zero when enter
+"     is pressed twice.  This is often what haskell code looks like but could
+"     catch you out.  The tradeoff is that When it's off, using ^F to manually
+"     indent the file means that all of the 'where' clauses cause progressivly
+"     bigger indents throughout the file.
 
 if exists('b:did_indent')
   " finish
@@ -183,12 +182,14 @@ fun! GetHaskellIndent(lnum)
     return indent(prev_lnum) + &shiftwidth
   endif
 
-  " Indent after a module which hasn't been terminated with a where.  The last
-  " part is implicit because we already matched terminating wheres.
-  if prev_line =~ module_start_re
-    return indent(prev_lnum) + &shiftwidth
-  endif
-
-  " Default case if we get here is to leave the indent unmodified.
-  return indent(prev_lnum)
+  " Default case if we get here is to use the last line.  When this is blank, it
+  " *usually* means we're on a new function but this is pretty error prone when
+  " we are re-indenting the whole file.  It means pressing enter twice counts as
+  " a new function.
+  if exists("g:haskell_gaps_zero") && g:haskell_gaps_zero > 0
+    return indent(a:lnum - 1)
+  else
+    " Therefore we can use the last non-blank line.
+    return indent(prev_lnum)
+  end
 endfunction
