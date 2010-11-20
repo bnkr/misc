@@ -161,8 +161,19 @@ fun! GetHaskellIndent(lnum)
     end
   end
 
-  " Indents from a class are always one.
-  if prev_line =~ class_start_re
+  " TODO: 
+  "   handle a where which does NOT terminate a line.  This is separate because
+  "   we normally expect
+  "
+  "     where a = 1
+  "           b = 2
+  "
+  "   if the where has something after it
+
+  " Indents from a class/data etc are always one.  Indent after a module which
+  " hasn't been terminated with a where.  The 'without a where' part is implicit
+  " because we already matched terminating wheres.
+  if prev_line =~ class_start_re || prev_line =~ module_start_re
     return &shiftwidth
   end
 
@@ -178,6 +189,10 @@ fun! GetHaskellIndent(lnum)
   "   prolly comes to roughly the same thing..
   "
   "   I also need in and let etc. here.
+  "
+  " TODO:
+  "   I can do better than this.  If we detect earlier typedefs and whatever,
+  "   then it's easier to find a base when manually indenting...
   if prev_line =~ '[\-!$%^&*(|=~?/\\{:><\[]\s*$' || prev_line =~ '\<do\s*$' 
     return indent(prev_lnum) + &shiftwidth
   endif
