@@ -34,7 +34,17 @@
 "
 " TODO:
 "   if/case, a bit like 'in'
-
+"
+" TODO:
+"   Fallback indent should optionally be the position of the previous equals, as
+"   in:
+"
+"     a = b
+"         c = d
+"
+"   This mostly applies to 'where'.  I thiink this is mostly a change to
+"   =wwhere and =let when they are alone on the line and, in the case of where,
+"   when it's not part of a module definitioon (or some other thing).
 
 if exists('b:did_indent')
   " finish
@@ -127,21 +137,21 @@ fun! GetHaskellIndent(lnum)
     return indent(prev_lnum)  +  &shiftwidth
   end
 
-  let prev_term_where = 0
   let this_term_where = 0
   let lone_where = 0
+  let where_found = 0
 
   let lone_where_re = '^\s*where\s*$'
 
   if this_line =~ lone_where_re
     let this_term_where = 1
     let lone_where = 1
-  elseif this_line =~ terminating_where_re 
+    let where_found = 1
+  elseif this_line =~ terminating_where_re
     let this_term_where = 1
-    let lone_where = 0
+    let where_found = 1
   elseif prev_line =~ terminating_where_re
-    let prev_term_where = 1
-    let lone_where = 0
+    let where_found = 1
   end
 
   " A 'where' that we just wrote (due to indentkeys).  Indent to one more than
@@ -151,8 +161,8 @@ fun! GetHaskellIndent(lnum)
   " We decide that there is *not* a module if we see any characters which aren't
   " allowed in module statements.
   "
-  " This handles '=where'.
-  if this_term_where == 1 || prev_term_where == 1
+  " This handles '=where' and 'where' terminating the previous line.
+  if where_found == 1
     " Don't indent the where if there's a lone closing bracket on the
     " earlier line.  Note: important to match before non_module_char_re
     " because they contain the same characters!  Note also: we only check
@@ -165,8 +175,11 @@ fun! GetHaskellIndent(lnum)
     " matched prev_term_where, there might be a module token on that line.
     let i = prev_lnum
 
-    while i > 0 
+    while i > 0
       let line_i = getline(i)
+      " TODO:
+      "   Need to check for interface/class definitions as well because they
+      "   have the same rules.
       if line_i =~ module_start_re
 
         if this_term_where == 1
@@ -176,16 +189,16 @@ fun! GetHaskellIndent(lnum)
             return indent(i) + &shiftwidth
           else
             " Otherwise it must be a continuation of a long module line and
-            " therefore the other indentation rules should have sotred *this
+            " therefore the other indentation rules should have sorted *this
             " particular line* line out already.  (Note: this code is probably
-            " unreachable becasue the ony other tokens that can go in are the
+            " unreachable becasue the only other tokens that can go in are the
             " close brackets which match at a higher precedence.
             return indent(a:lnum)
           end
         else
-          " If the where was on the previous line and said line was part of a
-          " module declaration then we need to return to the indent of the
-          " module (always zero)
+          " If the where was on prev_line and said line was part of a module
+          " declaration then we need to return to the indent of the module
+          " (always zero)
           return 0
         end
       elseif line_i =~ non_module_char_re
