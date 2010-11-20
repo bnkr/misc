@@ -17,10 +17,13 @@ checkhost () {
   ip=$2
 
   echo -n "${COLBLUE}* $name${COLRESET}"
-  ping -c 1 -q $ip > /dev/null 2>&1
+  errors=`(ping -c 1 -q "$ip" > /dev/null ) 2>&1`
   if test $? -ne "0"; then
     BROKEN=1
-    echo " ${COLRED}down$COLRESET"
+    if test "$errors" = ""; then
+      errors="timeout"
+    fi
+    echo " ${COLRED}down$COLRESET (${errors})"
   else
     echo " ${COLGREEN}ok$COLRESET"
   fi
