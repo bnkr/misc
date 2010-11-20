@@ -93,8 +93,8 @@ while true; do
   # checkhost "Kuri:  " 192.168.1.4
   # if test $BROKEN -eq 1 && test $ALL -ne 1; then wait_retry; continue; fi
 
-  # checkhost "Modem: " 192.168.100.1
-  # if test $BROKEN -eq 1 && test $ALL -ne 1; then wait_retry; continue; fi
+  checkhost "Modem: " 192.168.100.1
+  if test $BROKEN -eq 1 && test $ALL -ne 1; then wait_retry; continue; fi
 
   checkhost "Extern:" bunkerprivate.com
   if test $BROKEN -eq 1; then wait_retry; continue; fi
