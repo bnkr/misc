@@ -132,11 +132,9 @@ fun! GetHaskellIndent(lnum)
       return indent(prev_lnum)
     endif
 
-    if this_term_where == 1
-      let i = prev_lnum
-    else
-      let i = prev_lnum - 1
-    endif
+    " We always have to s tart on the preious line because, even if we just
+    " matched prev_term_where, there might be a module token on that line.
+    let i = prev_lnum
 
     while i > 0 
       let line_i = getline(i)
@@ -158,8 +156,8 @@ fun! GetHaskellIndent(lnum)
         else
           " If the where was on the previous line and said line was part of a
           " module declaration then we need to return to the indent of the
-          " module ( zero usually)
-          return indent(i)
+          " module (always zero)
+          return 0
         end
       elseif line_i =~ non_module_char_re
         " If we're not in a module then we need to indent whether this line is a
