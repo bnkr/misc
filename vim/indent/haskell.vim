@@ -16,6 +16,9 @@
 "     indent the file means that all of the 'where' clauses cause progressivly
 "     bigger indents throughout the file.
 "
+"     Even with this variable on, a 'where' clause will always indent you back
+"     to the right position, though.
+"
 " Todo:
 "
 "   - lots of Haskellists like to indent 'where' and similar to the column of
@@ -25,29 +28,6 @@
 "     variable, and disable he space-specific stuff if that var is not set.
 
 
-" TODO:
-"   Deal with 'let ... in'.
-"
-"     let blah = 1
-"         foo = 2
-"     in
-"       code
-"
-"
-"     let blah = 1
-"         foo = 2
-"
-"     let
-"       a = 1
-"       b = 2
-"     im
-"       code
-"
-"     let a = 1 in
-"       code
-"
-"   Handle 'in' on this_line
-"
 " TODO:
 "   Deal with 'let' in a 'do' (which doesn't hane an in).  Should be no issue I
 "   think
@@ -61,7 +41,7 @@ if exists('b:did_indent')
 endif
 let b:did_indent = 1
 
-setlocal indentkeys=!^F,o,O,0},0],0),=deriving,=where
+setlocal indentkeys=!^F,o,O,0},0],0),=deriving,=where,=in
 setlocal indentexpr=GetHaskellIndent(v:lnum)
 
 fun! GetHaskellIndent(lnum)
@@ -120,7 +100,24 @@ fun! GetHaskellIndent(lnum)
       end
       let i = i - 1
     endwhile
-  end
+  endif
+
+  " Any kind of 'in' indent needs to look for a previous let.
+  if this_line =~ '\<in\>'
+    let i = prev_lnum
+    while i > 0
+      " The 'let' can be anyywhere on the line (eg 'f = let a = b') so we have
+      " to be lenient.  Also we don't care if there is stuff after the let.
+      if getline(i) =~ '\<let\>'
+        return indent(i)
+      endif
+
+      let i = i - 1
+    endwhile
+
+    " Only get here in case of errors when doing =in.
+    return indent(a:lnum)
+  endif
 
   " This is a manual indent of a where with trailing stuff.  Note: this night
   " conflict with things later as it doesn't do much checking, but the only
@@ -242,7 +239,7 @@ fun! GetHaskellIndent(lnum)
   "   prolly comes to roughly the same thing..
   "
   "   I also need in and let etc. here.
-  if prev_line =~ '[\-!$%^&*(|=~?/\\{:><\[]\s*$' || prev_line =~ '\<\(do\|let\)\s*$' 
+  if prev_line =~ '[\-!$%^&*(|=~?/\\{:><\[]\s*$' || prev_line =~ '\<\(do\|let\|in\)\s*$'
     return indent(prev_lnum) + &shiftwidth
   endif
 
