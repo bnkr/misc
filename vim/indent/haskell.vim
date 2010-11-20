@@ -28,11 +28,32 @@
 " TODO:
 "   Deal with 'let ... in'.
 "
-" TODO:
-"   Deal with 'let' in a 'do' (which doesn't indent).
+"     let blah = 1
+"         foo = 2
+"     in
+"       code
+"
+"
+"     let blah = 1
+"         foo = 2
+"
+"     let
+"       a = 1
+"       b = 2
+"     im
+"       code
+"
+"     let a = 1 in
+"       code
+"
+"   Handle 'in' on this_line
 "
 " TODO:
-"   if/case
+"   Deal with 'let' in a 'do' (which doesn't hane an in).  Should be no issue I
+"   think
+"
+" TODO:
+"   if/case, a bit like 'in'
 
 
 if exists('b:did_indent')
@@ -194,11 +215,12 @@ fun! GetHaskellIndent(lnum)
   " TODO: nly works when NOT using tabs.  Need to deal with that somehow.
   if prev_line =~ '\<where\s\+[^ ]\+'
     return indent(prev_lnum) + strlen("where") + 1
-  elseif prev_line =~ '\<[l][e][t]\s\+[^ ]\+'
-    " TODO: this isn't working but the others do...
+  elseif prev_line =~ '\<let\s\+[^ ]\+'
     return indent(prev_lnum) + strlen("let") + 1
   elseif prev_line =~ '\<do\s\+[^ ]\+'
     return indent(prev_lnum) + strlen("do") + 1
+  elseif prev_line =~ '\<in\s\+[^ ]\+'
+    return indent(prev_lnum) + strlen("in") + 1
   end
 
   " Indents from a class/data etc are always one.  Indent after a module which
