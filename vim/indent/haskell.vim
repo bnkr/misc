@@ -90,6 +90,14 @@ fun! GetHaskellIndent(lnum)
     endwhile
   end
 
+  " This is a manual indent of a where with trailing stuff.  Note: this night
+  " conflict with things later as it doesn't do much checking, but the only
+  " other places where you can have 'where' with trailing stuff are errors so
+  " it's not a big deal.
+  if this_line =~ '\<where\s\+[^\s]\+$'
+    return indent(prev_lnum)  +  &shiftwidth
+  end
+
   let prev_term_where = 0
   let this_term_where = 0
   let lone_where = 0
@@ -169,14 +177,19 @@ fun! GetHaskellIndent(lnum)
     end
   end
 
-  " TODO: 
-  "   handle a where which does NOT terminate a line.  This is separate because
-  "   we normally expect
+  " A where/let/do with stuff coming after it usually wants an indentation to
+  " match the position where the stuff trailing the 'where' started
   "
-  "     where a = 1
-  "           b = 2
+  " TODO: why can't I use brackets and a submatch?
   "
-  "   if the where has something after it
+  " TODO: nly works when NOT using tabs.  Need to deal with that somehow.
+  if prev_line =~ 'where\s[^\s]\+$'
+    return indent(prev_lnum) + strlen("where") + 1
+  elseif prev_line =~ 'let\s[^\s]\+$'
+    return indent(prev_lnum) + strlen("let") + 1
+  elseif prev_line =~ 'do\s[^\s]\+$'
+    return indent(prev_lnum) + strlen("do") + 1
+  end
 
   " Indents from a class/data etc are always one.  Indent after a module which
   " hasn't been terminated with a where.  The 'without a where' part is implicit
