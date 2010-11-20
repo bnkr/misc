@@ -6,7 +6,7 @@
 "
 " Description:
 "
-"   Indents haskell code. See comments in the file to work out what it's doing.
+"   Indents Haskell code. See comments in the file to work out what it's doing.
 "
 " Variables:
 "
@@ -15,6 +15,14 @@
 "     catch you out.  The tradeoff is that When it's off, using ^F to manually
 "     indent the file means that all of the 'where' clauses cause progressivly
 "     bigger indents throughout the file.
+"
+" Todo:
+"
+"   - lots of Haskellists like to indent 'where' and similar to the column of
+"     the equals in teh line above instead of just increasing the indent.
+"   - this file uses space-specific stuff (e.g indenting the length of a
+"     'where').  It should turn spaces on instead of tabs depending on a global
+"     variable, and disable he space-specific stuff if that var is not set.
 
 if exists('b:did_indent')
   " finish
