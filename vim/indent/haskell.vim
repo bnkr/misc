@@ -217,22 +217,6 @@ fun! GetHaskellIndent(lnum)
     end
   end
 
-  " A where/let/do with stuff coming after it usually wants an indentation to
-  " match the position where the stuff trailing the 'where' started
-  "
-  " TODO: why can't I use brackets and a submatch?
-  "
-  " TODO: nly works when NOT using tabs.  Need to deal with that somehow.
-  if prev_line =~ '\<where\s\+[^ ]\+'
-    return match(prev_line, '\<where\>') + 6
-  elseif prev_line =~ '\<let\s\+[^ ]\+'
-    return match(prev_line, '\<let\>') + 4
-  elseif prev_line =~ '\<do\s\+[^ ]\+'
-    return match(prev_line, '\<do\>') + 3
-  elseif prev_line =~ '\<in\s\+[^ ]\+'
-    return match(prev_line, '\<in\>') + 3
-  end
-
   " Indents from a class/data etc are always one.  Indent after a module which
   " hasn't been terminated with a where.  The 'without a where' part is implicit
   " because we already matched terminating wheres.
@@ -255,6 +239,23 @@ fun! GetHaskellIndent(lnum)
   if prev_line =~ '[\-!$%^&*(|=~?/\\{:><\[]\s*$' || prev_line =~ '\<\(do\|let\|in\)\s*$'
     return indent(prev_lnum) + &shiftwidth
   endif
+
+
+  " A where/let/do with stuff coming after it usually wants an indentation to
+  " match the position where the stuff trailing the 'where' started
+  "
+  " TODO: why can't I use brackets and a submatch?
+  "
+  " TODO: nly works when NOT using tabs.  Need to deal with that somehow.
+  if prev_line =~ '\<where\s\+[^ ]\+'
+    return match(prev_line, '\<where\>') + 6
+  elseif prev_line =~ '\<let\s\+[^ ]\+'
+    return match(prev_line, '\<let\>') + 4
+  elseif prev_line =~ '\<do\s\+[^ ]\+'
+    return match(prev_line, '\<do\>') + 3
+  elseif prev_line =~ '\<in\s\+[^ ]\+'
+    return match(prev_line, '\<in\>') + 3
+  end
 
   " Default case if we get here is to use the last line.  When this is blank, it
   " *usually* means we're on a new function but this is pretty error prone when
