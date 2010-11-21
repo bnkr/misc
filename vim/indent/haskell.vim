@@ -224,13 +224,13 @@ fun! GetHaskellIndent(lnum)
   "
   " TODO: nly works when NOT using tabs.  Need to deal with that somehow.
   if prev_line =~ '\<where\s\+[^ ]\+'
-    return indent(prev_lnum) + strlen("where") + 1
+    return match(prev_line, '\<where\>') + 6
   elseif prev_line =~ '\<let\s\+[^ ]\+'
-    return indent(prev_lnum) + strlen("let") + 1
+    return match(prev_line, '\<let\>') + 4
   elseif prev_line =~ '\<do\s\+[^ ]\+'
-    return indent(prev_lnum) + strlen("do") + 1
+    return match(prev_line, '\<do\>') + 3
   elseif prev_line =~ '\<in\s\+[^ ]\+'
-    return indent(prev_lnum) + strlen("in") + 1
+    return match(prev_line, '\<in\>') + 3
   end
 
   " Indents from a class/data etc are always one.  Indent after a module which
