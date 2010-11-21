@@ -230,6 +230,11 @@ fun! GetHaskellIndent(lnum)
     end
   end
 
+  " Comments don't do anything specia.
+  if prev_line =~ '^\s*--'
+    return indent(prev_lnum)
+  endif
+
   " Indents from a class/data etc are always one.  Indent after a module which
   " hasn't been terminated with a where.  The 'without a where' part is implicit
   " because we already matched terminating wheres.
