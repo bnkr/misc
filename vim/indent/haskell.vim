@@ -51,7 +51,7 @@ if exists('b:did_indent')
 endif
 let b:did_indent = 1
 
-setlocal indentkeys=!^F,o,O,0},0],0),=deriving,=where,=in
+setlocal indentkeys=!^F,o,O,0},0],0),=deriving,=where,=in,<=>
 setlocal indentexpr=GetHaskellIndent(v:lnum)
 
 fun! GetHaskellIndent(lnum)
@@ -64,6 +64,23 @@ fun! GetHaskellIndent(lnum)
   let prev_lnum = prevnonblank(a:lnum - 1)
   let prev_line = getline(prev_lnum)
   let this_line = getline(a:lnum)
+
+  " We have to avoid re-indenting this line unless we're dealing with a 'let',
+  " which has special handling in order to make let in 'do' work.
+  "
+  " This has a side-effect that 'f =\n' won't be modified when manually
+  " re-indenting.
+  if this_line =~ '=$'
+    " If the previous non-blank line has a 'let' with stuff after it and no 'in'
+    " then this is an equation which we must assume should line up with the
+    " above 'let' equation.
+    if prev_line =~ '\<let\>\s\+[^ ]' && prev_line !~ '\<in\>'
+      return match(prev_line, '\<let\>') + 4
+    end
+
+    " The other matches (prev_line based) will handle this.
+    return indent(a:lnum)
+  endif
 
   " We'll reuse these.
   let module_start_re = '^\s*module\>'
@@ -240,17 +257,15 @@ fun! GetHaskellIndent(lnum)
     return indent(prev_lnum) + &shiftwidth
   endif
 
-
   " A where/let/do with stuff coming after it usually wants an indentation to
-  " match the position where the stuff trailing the 'where' started
+  " match the position where the stuff trailing the 'where' started.  Let needs
+  " special handling and is done when an equals character is written.
   "
   " TODO: why can't I use brackets and a submatch?
   "
   " TODO: nly works when NOT using tabs.  Need to deal with that somehow.
   if prev_line =~ '\<where\s\+[^ ]\+'
     return match(prev_line, '\<where\>') + 6
-  elseif prev_line =~ '\<let\s\+[^ ]\+'
-    return match(prev_line, '\<let\>') + 4
   elseif prev_line =~ '\<do\s\+[^ ]\+'
     return match(prev_line, '\<do\>') + 3
   elseif prev_line =~ '\<in\s\+[^ ]\+'
