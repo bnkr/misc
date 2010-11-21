@@ -1,42 +1,22 @@
 <?php
 define('API_SEARCH_QVAR', 'search');
 $API_SEARCH_ERROR = false;
-$API_SEARCH_SITES
-= array(
-  'google'  => array(
-                     'button' => 'Plain Ole Google',
-                     'url'    => 'http://www.google.co.uk/search?q='
-                    ),
-  'cstdlib' => array(
-                     'button' => 'C++ Ref',
-                     'url'    => 'http://www.google.co.uk/search?q=' .
-                         urlencode("site:www.cplusplus.com/reference/ ")
-                    ),
-  'php'     => array(
-                     'button' => 'PHP',
-                     'url'    => 'http://php.net/search.php?show=quickref&pattern='
-                    ),
-  'qt' =>      array(
-                     'button' => 'Qt',
-                     'url' => 'http://www.google.co.uk/search?q=' . urlencode('site:http://doc.trolltech.com/4.4 ')
-                    ),
-  'java'    => array(
-                     'button' => 'Java',
-                     'url'    => 'http://www.google.co.uk/search?q=' .
-                         urlencode("site:java.sun.com/j2se/1.6.0/docs/api/ ")
-                    ),
-  'python'  => array(
-                     'button' => 'Python Docs',
-                     'url'    => 'http://www.google.co.uk/search?q=' .
-                         urlencode('site:http://docs.python.org/lib/ ')
-                    ),
-  'ruby'    => array(
-                     'button' => 'Ruby Docs',
-                     'url'    => 'http://www.google.co.uk/search?q=' .
-                         urlencode('site:http://www.ruby-doc.org/ ')
-                    )
-);
+$API_SEARCH_SITES = array();
 
+function api_search_site($id, $button, $url) {
+  GLOBAL $API_SEARCH_SITES;
+
+  $data = array(
+    'button' => $button,
+    'url' => $url
+    );
+
+  $API_SEARCH_SITES[$id] = $data;
+}
+
+function api_search_site_google($id, $button, $site) {
+  api_search_site($id, $button, "http://www.google.co.uk/search?q=site:" . urlencode($site) . " ");
+}
 
 function api_search_print_form() {
   GLOBAL $API_SEARCH_SITES, $API_SEARCH_ERROR;
@@ -70,7 +50,16 @@ function api_search_redirect() {
   }
 }
 
+api_search_site('google', 'Google', 'http://www.google.co.uk/search?q=');
+api_search_site_google("cstdlib", "C++ Ref", "www.cplusplus.com/reference/");
+api_search_site_google("haskell", "Haskell", "haskell.org/ghc/dist/current/docs/html/libraries");
+api_search_site('php', "PHP", "http://php.net/search.php?show=quickref&pattern=");
+api_search_site_google('qt', 'Qt', 'doc.trolltech.com/4.4');
+api_search_site_google('python', 'Python', 'docs.python.org/lib/');
+api_search_site_google('ruby', 'Ruby', 'www.ruby-doc.org/');
+
 api_search_redirect();
+
 ?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
    "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">

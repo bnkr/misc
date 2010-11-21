@@ -29,10 +29,6 @@
 
 
 " TODO:
-"   Deal with 'let' in a 'do' (which doesn't hane an in).  Should be no issue I
-"   think
-"
-" TODO:
 "   if/case, a bit like 'in'
 "
 " TODO:
@@ -253,6 +249,9 @@ fun! GetHaskellIndent(lnum)
   "   prolly comes to roughly the same thing..
   "
   "   I also need in and let etc. here.
+  "
+  " TODO:
+  "   this causes comments to get indented (e..g TODO:<enter>)
   if prev_line =~ '[\-!$%^&*(|=~?/\\{:><\[]\s*$' || prev_line =~ '\<\(do\|let\|in\)\s*$'
     return indent(prev_lnum) + &shiftwidth
   endif
