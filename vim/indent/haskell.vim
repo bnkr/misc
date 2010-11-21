@@ -74,8 +74,10 @@ fun! GetHaskellIndent(lnum)
       return match(prev_line, '\<let\>') + 4
     end
 
-    " The other matches (prev_line based) will handle this.
-    return indent(a:lnum)
+    " Ideally we would always exit here, but unfortunately, I can't tell if it
+    " was '=' that was pressed or we're pressing <enter> in the middle of a line
+    " which has an '=' on the end.  Thereofre, I have to keep going and try more
+    " matches and hope for the best.
   endif
 
   " We'll reuse these.
