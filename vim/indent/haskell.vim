@@ -8,6 +8,10 @@
 "
 "   Indents Haskell code. See comments in the file to work out what it's doing.
 "
+"   This is a pretty slow indent file.  There are *lots* of things to try and
+"   match, and there are some loops to find context but mostly that'll only
+"   apply regexes to two or three lines.
+"
 " Variables:
 "
 "   - g:haskell_gaps_zero -- causes indentation to be reset to zero when enter
@@ -21,26 +25,28 @@
 "
 " Todo:
 "
-"   - lots of Haskellists like to indent 'where' and similar to the column of
-"     the equals in teh line above instead of just increasing the indent.
+"   - lots of Haskellists like to indent ased on the previous '=' operator.
+"     It's pretty hard to do it because you don't know what continues a function
+"     or not.
 "   - this file uses space-specific stuff (e.g indenting the length of a
 "     'where').  It should turn spaces on instead of tabs depending on a global
 "     variable, and disable he space-specific stuff if that var is not set.
 
 
 " TODO:
-"   if/case, a bit like 'in'
+"   Consider
+"
+"   f = do
+"     blah
+"     blah
+"       where
+"         x = y
+"
+"   The 'where' appears to apply to the second expression, but in reality it
+"   applies to the entire 'do' block.
 "
 " TODO:
-"   Fallback indent should optionally be the position of the previous equals, as
-"   in:
-"
-"     a = b
-"         c = d
-"
-"   This mostly applies to 'where'.  I thiink this is mostly a change to
-"   =wwhere and =let when they are alone on the line and, in the case of where,
-"   when it's not part of a module definitioon (or some other thing).
+"   if/case, a bit like 'in'.  Prolly only 'case' is wanted.
 
 if exists('b:did_indent')
   " finish
