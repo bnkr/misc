@@ -393,7 +393,7 @@ module BMake
 
       if ! @non_maybe_args.empty?
         puts "bmake: running named tests" if @config.verbose
-        run_tests!(@non_mabe_args)
+        run_tests!(@non_maybe_args)
       end
 
       maybe_args = TestRunner.make_args(@config.maybe_names, [])
