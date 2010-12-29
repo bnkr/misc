@@ -130,6 +130,7 @@ input[type="submit"], input[type="text"] {
   <h2>Games</h2>
   <p>
     <a href="http://www.nationstates.net/">NationStates</a> |
+    <a href="http://www.kongregate.com/">Kongregate</a> |
     <a href="http://www.armorgames.com/">Armor Games</a><br/>
     <a href="http://fragmasters.hlstatsx.com/?game=tf">Chavmasters TF2</a> |
     <a href="http://stats.gtfogaming.co.uk/tf">GTFO TF2</a>
