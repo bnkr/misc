@@ -70,11 +70,11 @@ ${color #0077ff}Mem usage
 $color ${top_mem name 1} ${top_mem pid 1} ${top_mem cpu 1} ${top_mem mem 1}
 $color ${top_mem name 2} ${top_mem pid 2} ${top_mem cpu 2} ${top_mem mem 2}
 $color ${top_mem name 3} ${top_mem pid 3} ${top_mem cpu 3} ${top_mem mem 3}
-
-${color #0077ff}Hardware:
+#
+#${color #0077ff}Hardware:
 # Temps: ${color #0077ff}CPU:  $color${exec sensors | awk "/temp2/ { print substr(\$2,2,length(\$2))}"}  ${color #0077ff} ${color #0077ff}MB:    $color${exec sensors | awk "/temp1/ { print substr(\$2,2,length(\$2))}"}  ${color #0077ff}
 # Fans:  ${color #0077ff}CPU:    $color${exec sensors | awk "/fan1/ { print \$2}"}  ${color #0077ff} ${color #0077ff}Case:  $color${exec sensors | awk "/fan2/ { print \$2}"}  ${color #0077ff}
- HDDs:  ${color #0077ff}hda:     $color${hddtemp /dev/hda}   ${color #0077ff}hdb:   $color${hddtemp /dev/hdb}   ${color #0077ff}hdd:   $color${hddtemp /dev/hdd}
+# HDDs:  ${color #0077ff}hda:     $color${hddtemp /dev/hda}   ${color #0077ff}hdb:   $color${hddtemp /dev/hdb}   ${color #0077ff}hdd:   $color${hddtemp /dev/hdd}
 
 ${color #0077ff}Port(s)${alignr}#Connections
 $color Inbound: ${tcp_portmon 1 32767 count}  Outbound: ${tcp_portmon 32768 61000 count}${alignr}ALL: ${tcp_portmon 1 65535 count}
