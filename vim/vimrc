@@ -64,7 +64,7 @@ syntax enable
 " The colours are dark on my system.
 set background=dark
 
-" Change it depending on the sub-mode 
+" Change it depending on the sub-mode
 function! SetTermModeMsgColor(mode)
   if a:mode == 'i'
     imap <Ins> <Esc>l<S-R>
@@ -81,7 +81,7 @@ endfunction
 " groups and what they're currently defined to.  Also, :help colortest.vim
 if has("gui_running")
   colorscheme desert
-  " Set it to what my normal bg color is (otherwise it's plain black or 
+  " Set it to what my normal bg color is (otherwise it's plain black or
   " similar.
   highlight Normal guibg=grey20
 else
@@ -92,18 +92,18 @@ else
   highlight Search  cterm=Underline ctermfg=Black ctermbg=Green
   " Note: this also looks ok for search.
   "highlight Search cterm=Underline ctermfg=Black ctermbg=Yellow
-  
+
   highlight Todo       ctermfg=DarkRed ctermbg=Yellow
   highlight SpellBad   ctermfg=Black   ctermbg=Red
   highlight SpellLocal ctermfg=Black   ctermbg=Cyan
 
-  " Give the mode message a different color in replace mode so I can tell 
-  " when I've accidentally pressed insert twice. 
+  " Give the mode message a different color in replace mode so I can tell
+  " when I've accidentally pressed insert twice.
   au InsertEnter * call SetTermModeMsgColor(v:insertmode)
 end
 
 " Make line numbers dark.
-highlight LineNr term=bold cterm=NONE ctermfg=DarkGrey ctermbg=NONE 
+highlight LineNr term=bold cterm=NONE ctermfg=DarkGrey ctermbg=NONE
 highlight LineNr gui=NONE guifg=DarkGrey guibg=NONE
 
 " EnhancedCommentify stuff
@@ -117,7 +117,7 @@ let EnhCommentifyUseBlockIndent = "yes"
 " work.
 nmap <Leader>c :MyEnhancedCommentify<CR>
 vmap <Leader>c <Plug>VisualTraditional
-command! -range MyEnhancedCommentify 
+command! -range MyEnhancedCommentify
 \ call EnhancedCommentify('', 'guess', <line1>, <line2>)
 
 " Because I get confused between insert and command mode otherwise!
@@ -181,6 +181,19 @@ set textwidth=80
 " FIXME: fucks sake... this is being set for everything!!
 autocmd FileType xml,tex,docbk setlocal textwidth=120
 
+" C commenting:
+"
+" :0 = indent a case label zero characters (i.e keep it indented to the position
+"      of the switch token)
+" (s = use shiftwidth to indent after an unclosed parenthesis
+" U1 = do (s even if the open bracket is the first char on the line
+" Ws = use shitwidth when indenting a line after unclosed paren if the line is
+"      long
+" m1 = de-indent a closing parenthesis on an empty line
+set cinoptions=:0,(s,U1,Ws,m1
+
+" Default format options:
+"
 " c = auto-wrap comments using textwidth.
 " r = auto-insert the comment char(s) when you press enter after a comment.
 " o (missing) = don't insert a comment with the insert line o or O.
@@ -222,12 +235,12 @@ autocmd FileType docbk,xxs,c,cpp,java,php,ruby,cmake,latex,lemon,tex,asciidoc,sh
 let g:xml_syntax_folding=1
 
 
-" FIXME: 
+" FIXME:
 "   this lot doesn't work.  Maybe it needs to be in the syntax/ directory?  I
 "   have trouble working out why though...
 au FileType docbk if 'xml' == b:docbk_type
 au FileType docbk   syn cluster xmlRegionHook add=@Spell
-au FileType docbk elseif 'sgml' == b:docbk_type 
+au FileType docbk elseif 'sgml' == b:docbk_type
 au FileType docbk   syn cluster sgmlRegionHook add=@Spell
 au FileType docbk end
 
