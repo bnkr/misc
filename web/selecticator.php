@@ -180,7 +180,8 @@ input[type="submit"], input[type="text"] {
   <h2>Comics</h2>
   <p>
     <a href="http://www.questionablecontent.net/">Questionable Content</a> |
-    <a href="http://www.overcompensating.com/">Over Compensating</a> |
+    <!-- <a href="http://www.overcompensating.com/">Over Compensating</a> | (not updating for now) -->
+    <a href="http://www.wigucomics.com/">Wigu</a> |
     <a href="http://www.xkcd.com/">XKCD</a> |
     <a href="http://www.daniellecorsetto.com/gws.html">GWS</a> |
     <a href="http://www.johnnywander.com/">Johnny Wander</a> |
