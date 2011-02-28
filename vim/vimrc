@@ -190,7 +190,8 @@ autocmd FileType xml,tex,docbk setlocal textwidth=120
 " Ws = use shitwidth when indenting a line after unclosed paren if the line is
 "      long
 " m1 = de-indent a closing parenthesis on an empty line
-set cinoptions=:0,(s,U1,Ws,m1
+" h0 = don't indent after an access modifier (public/private etc)
+set cinoptions=:0,(s,U1,Ws,m1,h0
 
 " Default format options:
 "
