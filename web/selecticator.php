@@ -186,7 +186,8 @@ input[type="submit"], input[type="text"] {
     <a href="http://www.daniellecorsetto.com/gws.html">GWS</a> |
     <a href="http://www.johnnywander.com/">Johnny Wander</a> |
     <a href="http://www.asofterworld.com/">A Softer World</a> |
-    <a href="http://www.wastedtalent.ca/">Wasted Talent</a><br/>
+    <a href="http://www.wastedtalent.ca/">Wasted Talent</a> |
+    <a href="http://www.oglaf.com/">Oglaf</a><br/>
     <a href="http://www.homestarrunner.com/">Homestar Runner</a><br/>
     <a href="http://www.purepwnage.com/">Pure Pwnage</a><br/>
     <a href="http://www.weebls-stuff.com/">Weebl's Stuff</a><br/>
