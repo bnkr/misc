@@ -75,25 +75,25 @@ syn keyword rlWriteWhatOp data nofinal exec init contained
 " The main bracket delimted region.
 syn region rlMachine matchgroup=rlMachineDelim start="%%{" end="}%%" keepend contains=@rlItems contained
 
-" Everything inside the machone.
-syn cluster rlItems contains=rlComment,rlKeywords,rlCode,rlChar,rlCharClass
+" Everything inside the machine.
+syn cluster rlItems contains=rlComment,rlKeyword,rlCode,rlSString,rlSStringClass,rlDString
 
-"""""""""""""
-" Easy bits "
-"""""""""""""
+""""""""""""""""
+" Machine body "
+""""""""""""""""
 
 syn match rlComment "#.*$" contained contains=rlTodo,@Spell
-syn keyword rlKeywords machine contained
-syn match rlChar /'[^']*'/ contained
-syn match rlCharClass /\[[^\]]*\]/ contained
-syn match rlString "\"(.\n)*\"" contained
+syn keyword rlKeyword machine include action alphatype getkey include contained
+syn match rlSString /'[^']*'/ contained
+syn match rlSStringClass /\[[^\]]*\]/ contained
+syn match rlDString /"[^"]*"/ contained
 
 """""""""""""""""
 " Action Blocks "
 """""""""""""""""
 
-syn region rlCode start="{" end="}" contained keepend contains=@rlSubLang,rlCodeOps,rlFsmType
-syntax keyword rlFsmType fpc fc fcurs fbuf fblen ftargs fstack contained
+syn region rlCode start="{" end="}" contained keepend contains=@rlSubLang,rlCodeOps,rlFsmVar
+syntax keyword rlFsmVar fpc fc fcurs fbuf fblen ftargs fstack contained
 syntax keyword rlCodeOps fhold fgoto fcall fret fentry fnext fexec fbreak contained
 
 """""""""""""""""""""""""""
@@ -103,14 +103,15 @@ syntax keyword rlCodeOps fhold fgoto fcall fret fentry fnext fexec fbreak contai
 hi link rlComment       Comment
 hi link rlTodo          Todo
 
-hi link rlChar          rlString
-hi link rlString        rlLiteral
+hi link rlSString       rlLiteral
+hi link rlDString       rlLiteral
 hi link rlLiteral       String
-hi link rlCharClass     rlRegex
+hi link rlSStringClass  rlRegex
 hi link rlRegex         Special
 hi link rlCodeOps       Operator
-hi link rlFsmType       Type
+hi link rlFsmVar        Constant
 
+hi link rlKeyword       Structure
 hi link rlOperator      Operator
 hi link rlWriteWhatOp   Operator
 hi link rlWriteOp       rlMachineDelim
