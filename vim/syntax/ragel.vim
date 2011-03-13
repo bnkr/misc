@@ -76,7 +76,7 @@ syn keyword rlWriteWhatOp data nofinal exec init contained
 syn region rlMachine matchgroup=rlMachineDelim start="%%{" end="}%%" keepend contains=@rlItems contained
 
 " Everything inside the machine.
-syn cluster rlItems contains=rlComment,rlKeyword,rlCode,rlSString,rlSStringClass,rlDString,rlBuiltIn
+syn cluster rlItems contains=rlComment,rlKeyword,rlCode,rlSString,rlCharClass,rlDString,rlBuiltIn,rlAction,rlSlashRegex
 
 """"""""""""""""
 " Machine body "
@@ -85,12 +85,26 @@ syn cluster rlItems contains=rlComment,rlKeyword,rlCode,rlSString,rlSStringClass
 syn match rlComment "#.*$" contained contains=rlTodo,@Spell
 syn keyword rlKeyword machine include action alphatype getkey include contained
 syn match rlSString /'[^']*'/ contained
-syn match rlSStringClass /\[[^\]]*\]/ contained
 syn match rlDString /"[^"]*"/ contained
+" TODO:
+"   These could be better wrt special characters and so on.
+syn match rlCharClass /\[[^\]]*\]/ contained
+syn match rlSlashRegex "/[^/]\+/[i]\?" contained
 
 syn keyword rlBuiltin
       \ any ascii extend digit alnum lower upper xdigit cntrl graph print
       \ punct space zlen empty
+
+" Note that this first one must be up here so the more verbose versions have a
+" higher priority.
+syn match rlAction /\([><$%@]\|<>\)/ contained
+syn match rlAction /\([><$%@]\|<>\)\(to\|[~]\)/ contained
+syn match rlAction /\([><$%@]\|<>\)\(from\|[*]\)/ contained
+syn match rlAction /\([><$%@]\|<>\)\(eof\|[/]\)/ contained
+syn match rlAction /\([><$%@]\|<>\)\(err\|[!]\)/ contained
+syn match rlAction /\([><$%@]\|<>\)\(lerr\|[\^]\)/ contained
+syn match rlAction /\([><$%@]\|<>\)\(to\|[~]\)/ contained
+syn match rlAction /\([><$%@]\|<>\)\(to\|[~]\)/ contained
 
 """""""""""""""""
 " Action Blocks "
@@ -110,11 +124,13 @@ hi link rlTodo          Todo
 hi link rlSString       rlLiteral
 hi link rlDString       rlLiteral
 hi link rlLiteral       String
-hi link rlSStringClass  rlRegex
+hi link rlCharClass     rlRegex
+hi link rlSlashRegex    rlRegex
 hi link rlRegex         Special
 hi link rlCodeOp        Operator
 hi link rlCodeVar       Constant
 hi link rlBuiltin       Constant
+hi link rlAction        Structure
 
 hi link rlKeyword       Structure
 hi link rlOperator      Operator
