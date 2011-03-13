@@ -9,6 +9,12 @@ filetype plugin indent on
 
 " Additional file types (automatically sources syntax/ragel
 " and friends)
+"
+" TODO:
+"   These don't really work properly.  Things get redetected as conf later on.
+"   See:
+"
+"     http://stackoverflow.com/questions/1291955/very-strange-behavior-with-vim-syntax-and-filetype-detection
 au BufRead,BufNewFile *.rl       setfiletype ragel
 au BufRead,BufNewFile *.xxs,*.xh setfiletype xxs
 au BufRead,BufNewFile TODO*      setfiletype asciidoc
@@ -245,3 +251,6 @@ au FileType docbk elseif 'sgml' == b:docbk_type
 au FileType docbk   syn cluster sgmlRegionHook add=@Spell
 au FileType docbk end
 
+map <F10> :echo "hi<" . synIDattr(synID(line("."),col("."),1),"name") . '> trans<'
+      \ . synIDattr(synID(line("."),col("."),0),"name") . "> lo<"
+      \ . synIDattr(synIDtrans(synID(line("."),col("."),1)),"name") . ">"<CR>

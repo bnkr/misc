@@ -1,32 +1,19 @@
 " Vim syntax file
 "
-" These variables are used:
-"
-" - ragel_lang
-"
 " Language: Ragel
-" Author: Adrian Thurston (modified by James Webber)
+" Author: James Webber
+" Copyright: Copyright (C) James Webber 2011.  2-clause BSD License
+"
+" Highlights regel and whatever sub-language is being used by using a
+" sub-syntax.
+"
+" TODO:
+"   There is only a basic attempt to detect which langauge is running.  Needs
+"   patching.
 
 if exists("b:current_syntax")
   finish
 endif
-
-" TODO:
-"   Main problem is that C++ code *after* the state machine is highlighted
-"   completely wrongly.  Identifiers seem to become operators or similar
-"   (yellow) by default even outside of the machine spec.
-"
-"   It can't deal with it at all when you can't see the start of the machine.
-"   Maybe this is the 
-"
-"   #define at the start of the file is matched as a comment?!
-"
-"   The character class match breaks everything, even though it's contained?!
-"
-"   It seems that a lot of contained stuff is being matched outside where it is
-"   supposed to be contained... perhaps the C is using a CONTAINED,except ?
-
-syn sync fromstart
 
 " Load a sub-syntax into the rlSubLang group.
 fun! RagelLoadLangSyntax(language_file)
@@ -46,119 +33,88 @@ fun! RagelLoadLangSyntax(language_file)
   end
 endfun
 
-" Will this work for local files?
-"
-" FIXME: is bruken.  Screws everything up.
-" runtime! syntax/cpp.vim
+""""""""""""""
+" Sub-Syntax "
+""""""""""""""
 
-call RagelLoadLangSyntax('cpp.vim')
+" TODO:
+"   This needs to run a proper filetype detection with the .rl extension removed
+"   somehow.
 
-syn keyword rlTodo TODO FIXME XXX
+let b:rl_file = bufname("%")
+if b:rl_file =~ "\.cpp\.[^.]\+$"
+  call RagelLoadLangSyntax('cpp.vim')
+else
+  call RagelLoadLangSyntax('cpp.vim')
+end
+unlet b:rl_file
 
-" Identifiers
-syntax match rlIdentifier "[a-zA-Z_][a-zA-Z_0-9]*" contained
+" Override whatever's set by cpp.vim.
+syn sync fromstart
 
-" Inline code only
+" This seems to be the only way to get it so that the ragel highlighting doesn't
+" bleed into the C highlighting -- the 'contained' specified syntax ends up
+" being macthed globally..  My guess is that the C or C++ highlighting uses
+" @contained somewhere and that traps all my contained matches.
+syn region rlDocument start="\%^" end="\%$" contains=rlMachine,rlWriteLine,@rlSubLang
+
+"""""""""""""""
+" Global Bits "
+"""""""""""""""
+
+syn match rlWriteLine "^\s*%%\s*write.*$" contains=rlWriteWhatOp,rlWritePercents,rlWriteOp contained
+
+syn match rlWritePercents "%%" contained
+syn keyword rlWriteOp write contained
+syn keyword rlWriteWhatOp data nofinal exec init contained
+
+"""""""""""""""""""""""""""""""""""""""
+" Delimited machine, i.e %%{ ... }%%" "
+"""""""""""""""""""""""""""""""""""""""
+
+" The main bracket delimted region.
+syn region rlMachine matchgroup=rlMachineDelim start="%%{" end="}%%" keepend contains=@rlItems contained
+
+" Everything inside the machone.
+syn cluster rlItems contains=rlComment,rlKeywords,rlCode,rlChar,rlCharClass
+
+"""""""""""""
+" Easy bits "
+"""""""""""""
+
+syn match rlComment "#.*$" contained contains=rlTodo,@Spell
+syn keyword rlKeywords machine contained
+syn match rlChar /'[^']*'/ contained
+syn match rlCharClass /\[[^\]]*\]/ contained
+syn match rlString "\"(.\n)*\"" contained
+
+"""""""""""""""""
+" Action Blocks "
+"""""""""""""""""
+
+syn region rlCode start="{" end="}" contained keepend contains=@rlSubLang,rlCodeOps,rlFsmType
 syntax keyword rlFsmType fpc fc fcurs fbuf fblen ftargs fstack contained
-syntax keyword rlFsmKeyword fhold fgoto fcall fret fentry fnext fexec fbreak contained
+syntax keyword rlCodeOps fhold fgoto fcall fret fentry fnext fexec fbreak contained
 
-syntax cluster rlItems contains=rlComment,rlLiteral,rlAugmentOps,rlOtherOps,rlKeywords,rlWrite,rlCodeCurly,rlCodeSemi,rlNumber,rlIdentifier,rlLabelColon,rlExprKeywords
+"""""""""""""""""""""""""""
+" Hihglight Group Linkage "
+"""""""""""""""""""""""""""
 
-syntax region rlMachineSpec1 matchgroup=rlBegin start="%%{" end="}%%" contains=@rlItems
-syntax region rlMachineSpec2 matchgroup=rlBegin start="%%[^{]"rs=e-1 end="$" keepend contains=@rlItems
-syntax region rlMachineSpec2 matchgroup=rlBegin start="%%$" end="$" keepend contains=@rlItems
+hi link rlComment       Comment
+hi link rlTodo          Todo
 
-" Comments
-" TODO: 
-"   this gets matched as a comment on the second line of a preproc directive at
-"   the start of the file (i.e. not in the state machine), as in #define.
-"   WTF?!?!?!
-syntax match rlComment "#.*$" contained contains=rlTodo,@Spell
+hi link rlChar          rlString
+hi link rlString        rlLiteral
+hi link rlLiteral       String
+hi link rlCharClass     rlRegex
+hi link rlRegex         Special
+hi link rlCodeOps       Operator
+hi link rlFsmType       Type
 
-" Literals
-syntax match rlLiteral "'\(\\.\|[^'\\]\)*'[i]*"    contained
-syntax match rlLiteral "\"\(\\.\|[^\"\\]\)*\"[i]*" contained
-syntax match rlLiteral /\/\(\\.\|[^\/\\]\)*\/[i]*/ contained
-" TODO: this breaks the C++ code, even though it's contained.  Wtf?!
-" syntax match rlLiteral "\[\(\\.\|[^\]\\]\)*\]"     contained
+hi link rlOperator      Operator
+hi link rlWriteWhatOp   Operator
+hi link rlWriteOp       rlMachineDelim
+hi link rlWritePercents rlMachineDelim
+hi link rlMachineDelim  Preproc
 
-" Numbers
-syntax match rlNumber "[0-9][0-9]*"               contained
-syntax match rlNumber "0x[0-9a-fA-F][0-9a-fA-F]*" contained
-
-" Operators
-syntax match rlAugmentOps "[>$%@]"           contained
-syntax match rlAugmentOps "<>\|<"            contained
-syntax match rlAugmentOps "[>\<$%@][!\^/*~]" contained
-syntax match rlAugmentOps "[>$%]?"           contained
-syntax match rlAugmentOps "<>[!\^/*~]"       contained
-syntax match rlAugmentOps "=>"               contained
-syntax match rlOtherOps   "->"               contained
-
-" TODO: these never get matched.  WTF!?!?!?!!?
-syntax match rlOtherOps   "<:"  contained
-syntax match rlOtherOps   ":>"  contained
-syntax match rlOtherOps   ":>>" contained
-
-" Keywords
-" FIXME: Enable the range keyword post 5.17.
-" syntax keyword rlKeywords machine action context include range contained
-syntax keyword rlKeywords     contained machine action context include import export prepush postpop
-syntax keyword rlExprKeywords contained when inwhen outwhen err lerr eof from to
-
-syntax match rlLabelColon "[a-zA-Z_][a-zA-Z_0-9]*[ \t]*:$" contained contains=rlLabel
-syntax match rlLabelColon "[a-zA-Z_][a-zA-Z_0-9]*[ \t]*:[^=:>]"me=e-1 contained contains=rlLabel
-syntax match rlLabel "[a-zA-Z_][a-zA-Z_0-9]*" contained
-
-" All items that can go in a code block.
-syntax cluster rlInlineItems 
-      \ contains=rlIdentifier,rlFsmType,rlFsmKeyword,caseLabelColon,@rlSubCurly,@rlSubLang,
-
-" Hack to get sub-brackets to work when there are multiple levels of braced
-" code.  I think it's to do with how brackets are specified with/without keepend 
-" in the sub-language.  This is recursive via. rlInlineItems.  If you don't do
-" this then the first '}' is matched as the end of region.  There's probably a
-" better way to do this.
-syntax region rlSubCurly start='{' end='}' contained keepend contains=@rlInlineItems
-
-" Blocks of code.
-syntax region rlCodeCurly matchgroup=Operator start="{" end="}" contained contains=rlSubCurly,@rlInlineItems
-syntax region rlCodeSemi matchgroup=Type contained keepend contains=@rlInlineItems
-      \ start="\<alphtype\>" start="\<getkey\>" start="\<access\>" start="\<variable\>" 
-      \ matchgroup=NONE end=";"
-
-syntax region rlWrite matchgroup=Type start="\<write\>" matchgroup=NONE end="[;)]" contained contains=rlWriteKeywords,rlWriteOptions
-
-syntax keyword rlWriteKeywords init data exec exports start error first_final contained
-syntax keyword rlWriteOptions noerror nofinal noprefix noend nocs contained
-
-"
-" Sync at the start of machine specs.
-"
-" Match The ragel delimiters only if there quotes no ahead on the same line.
-" On the open marker, use & to consume the leader.
-syntax sync match ragelSyncPat grouphere NONE "^[^\'\"%]*%%{&^[^\'\"%]*"
-syntax sync match ragelSyncPat grouphere NONE "^[^\'\"%]*%%[^{]&^[^\'\"%]*"
-syntax sync match ragelSyncPat grouphere NONE "^[^\'\"]*}%%"
-
-"
-" Specifying Groups
-"
-
-hi link rlComment Comment
-hi link rlTodo Todo
-hi link rlNumber Number
-hi link rlLiteral String
-hi link rlAugmentOps Keyword
-hi link rlExprKeywords Keyword
-hi link rlWriteKeywords Keyword
-hi link rlWriteOptions Keyword
-hi link rlKeywords Type
-
-hi link rlFsmType Type
-hi link rlFsmKeyword Keyword
-hi link rlLabel Label
-hi link rlBegin Type
- 
 let b:current_syntax = "ragel"
-
