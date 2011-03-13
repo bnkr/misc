@@ -8,14 +8,7 @@ autocmd!
 filetype plugin indent on
 
 " Additional file types (automatically sources syntax/ragel
-" and friends)
-"
-" TODO:
-"   These don't really work properly.  Things get redetected as conf later on.
-"   See:
-"
-"     http://stackoverflow.com/questions/1291955/very-strange-behavior-with-vim-syntax-and-filetype-detection
-au BufRead,BufNewFile *.rl       setfiletype ragel
+" and friends).  NOTE: this should use filetype.vim, really.
 au BufRead,BufNewFile *.xxs,*.xh setfiletype xxs
 au BufRead,BufNewFile TODO*      setfiletype asciidoc
 au BufRead,BufNewFile *.txt      setfiletype asciidoc
