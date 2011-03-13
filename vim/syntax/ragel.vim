@@ -76,7 +76,7 @@ syn keyword rlWriteWhatOp data nofinal exec init contained
 syn region rlMachine matchgroup=rlMachineDelim start="%%{" end="}%%" keepend contains=@rlItems contained
 
 " Everything inside the machine.
-syn cluster rlItems contains=rlComment,rlKeyword,rlCode,rlSString,rlSStringClass,rlDString
+syn cluster rlItems contains=rlComment,rlKeyword,rlCode,rlSString,rlSStringClass,rlDString,rlBuiltIn
 
 """"""""""""""""
 " Machine body "
@@ -88,13 +88,17 @@ syn match rlSString /'[^']*'/ contained
 syn match rlSStringClass /\[[^\]]*\]/ contained
 syn match rlDString /"[^"]*"/ contained
 
+syn keyword rlBuiltin
+      \ any ascii extend digit alnum lower upper xdigit cntrl graph print
+      \ punct space zlen empty
+
 """""""""""""""""
 " Action Blocks "
 """""""""""""""""
 
-syn region rlCode start="{" end="}" contained keepend contains=@rlSubLang,rlCodeOps,rlFsmVar
-syntax keyword rlFsmVar fpc fc fcurs fbuf fblen ftargs fstack contained
-syntax keyword rlCodeOps fhold fgoto fcall fret fentry fnext fexec fbreak contained
+syn region rlCode start="{" end="}" contained keepend contains=@rlSubLang,rlCodeOp,rlCodeVar
+syntax keyword rlCodeVar fpc fc fcurs fbuf fblen ftargs fstack contained
+syntax keyword rlCodeOp fhold fgoto fcall fret fentry fnext fexec fbreak contained
 
 """""""""""""""""""""""""""
 " Hihglight Group Linkage "
@@ -108,8 +112,9 @@ hi link rlDString       rlLiteral
 hi link rlLiteral       String
 hi link rlSStringClass  rlRegex
 hi link rlRegex         Special
-hi link rlCodeOps       Operator
-hi link rlFsmVar        Constant
+hi link rlCodeOp        Operator
+hi link rlCodeVar       Constant
+hi link rlBuiltin       Constant
 
 hi link rlKeyword       Structure
 hi link rlOperator      Operator
